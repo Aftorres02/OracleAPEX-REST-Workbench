@@ -1,13 +1,8 @@
----
-name: release-process
-description: Multi-step guide for structuring and running a versioned Oracle APEX/DDL release (Dev → Test → Prod), including the release folder layout and two branching/tagging strategies.
----
-
 # Release Process
 
-> This is a multi-step operational workflow, not a one-line coding rule —
-> see the rules-vs-skills split in `STRUCTURE.md`. This skill assumes a
-> [Git workflow](../../rules/git-workflow.md) is already in place; some
+> Project-specific operational workflow for this repo. The coding standards
+> it builds on live in the `.claude/` submodule — this assumes the
+> [Git workflow](../.claude/rules/git-workflow.md) is already in place; some
 > examples below may need to be adapted to the chosen branching model.
 
 ## Structure
@@ -26,11 +21,12 @@ per project.
 
 | File | Auto Generated | Description |
 | --- | --- | --- |
-| [`all_apex.sql`](release/all_apex.sql) | Yes | Installs all APEX applications |
-| [`all_data.sql`](release/all_data.sql) | No | Runs all re-runnable data scripts — references must be added manually, order matters |
-| [`all_packages.sql`](release/all_packages.sql) | Yes | References all packages in `packages/` — `.pks` files first, then `.pkb` |
-| [`all_views.sql`](release/all_views.sql) | Yes | References all views in `views/` |
-| [`load_env_vars.sql`](release/load_env_vars.sql) | Yes | Loads environment variables into the SQL session |
+| [`all_apex.sql`](../release/all_apex.sql) | Yes | Installs all APEX applications |
+| [`all_data.sql`](../release/all_data.sql) | No | Runs all re-runnable data scripts — references must be added manually, order matters |
+| [`all_packages.sql`](../release/all_packages.sql) | Yes | References all packages in `packages/` — `.pks` files first, then `.pkb` |
+| [`all_triggers.sql`](../release/all_triggers.sql) | Yes | References all triggers in `triggers/` |
+| [`all_views.sql`](../release/all_views.sql) | Yes | References all views in `views/` |
+| [`load_env_vars.sql`](../release/load_env_vars.sql) | Yes | Loads environment variables into the SQL session |
 
 "Auto generated" files are produced by the project's build process — adapt this to whatever build tooling the project actually uses.
 
@@ -45,6 +41,11 @@ Each file added to `code` must be referenced from `code/_run_code.sql`, which is
 @issue-456.sql
 ```
 
+The folder also ships [`code/backout.sql`](../release/code/backout.sql), an
+empty placeholder. Note the tension with the assumptions below: the process
+described here does **not** rely on a rollback script, so this file is unused
+unless the team decides to maintain one per release.
+
 ## Release Process
 
 Oracle releases are unforgiving — a failed DDL statement can corrupt the rest of a release and there's no cheap way to restore a schema to a point in time before the release. Making release scripts fully re-runnable or rollback-safe is possible but expensive, so the process below assumes:
@@ -53,7 +54,7 @@ Oracle releases are unforgiving — a failed DDL statement can corrupt the rest 
 - There is **no** rollback script to undo a release.
 - Code goes `Dev → Test → Prod`.
 - Code can be run manually in Test.
-- Development sprints are ~2 weeks; active development happens on `master`.
+- Development sprints are ~2 weeks; active development happens on `main`.
 
 Two tagging strategies are described below — pick whichever fits your team's culture; neither is objectively "better."
 
@@ -70,7 +71,7 @@ Code is tagged only when it **goes to Prod**. Every patch applied in Test requir
 
 ```bash
 # Once the sprint is complete, cut a pre-release branch:
-git checkout -b $GIT_PRE_RELEASE_BRANCH master
+git checkout -b $GIT_PRE_RELEASE_BRANCH main
 git push --set-upstream origin
 
 # Run the release manually in Test (see "Run Release Manually" below).
@@ -90,7 +91,7 @@ git add *
 git commit -m "patch fix"
 git push
 
-git checkout master
+git checkout main
 git merge $GIT_PRE_RELEASE_BRANCH
 ```
 
@@ -103,7 +104,7 @@ git checkout $GIT_PRE_RELEASE_BRANCH
 git tag $RELEASE_VERSION
 git push origin --tags
 
-git checkout master
+git checkout main
 git push --delete origin $GIT_PRE_RELEASE_BRANCH
 git branch -d $GIT_PRE_RELEASE_BRANCH
 
@@ -118,22 +119,22 @@ Then run the release in Production — see "Running a Release in Production" bel
 Same shape as Concept 1, but code is tagged every time it **leaves Dev** rather than when it reaches Prod. This reduces the risk of a mis-ordered patch breaking production, at the cost of creating more releases (e.g. `1.0.0`, `1.0.1`, `1.0.2` for a base release plus two Test-phase patches — all of which must eventually be deployed to Production).
 
 ```bash
-git checkout -b $GIT_PRE_RELEASE_BRANCH master
+git checkout -b $GIT_PRE_RELEASE_BRANCH main
 git push --set-upstream origin
 
 # Run the release manually in Test.
 
 # Merge changes back into master (in case any were made during the release), tag, and clean up:
-git checkout master
-git pull origin master
+git checkout main
+git pull origin main
 git merge $GIT_PRE_RELEASE_BRANCH
-git push origin master
+git push origin main
 
 git checkout $GIT_PRE_RELEASE_BRANCH
 git tag $RELEASE_VERSION
 git push origin --tags
 
-git checkout master
+git checkout main
 git push --delete origin $GIT_PRE_RELEASE_BRANCH
 git branch -d $GIT_PRE_RELEASE_BRANCH
 
