@@ -1,0 +1,325 @@
+{
+  "application": {
+    "name": "Schema Explorer",
+    "workspace": "DEV_AI_1",
+    "dbConnectionName": "dev_ai_1",
+    "appPath": "docs/apexlang-example/app",
+    "readOnly": true
+  },
+  "sourceEvidence": {
+    "requirements": [
+      { "id": "FR-001", "text": "Home dashboard 4 KPI cards excluding synonyms", "status": "covered" },
+      { "id": "FR-002", "text": "Home horizontal bar chart of object counts by object_type, top 10 desc, excluding synonyms", "status": "covered" },
+      { "id": "FR-003", "text": "Objects IR over ALL_OBJECTS, excludes synonyms by default, user-clearable", "status": "covered" },
+      { "id": "FR-004", "text": "Highlight rows where status = INVALID", "status": "covered" },
+      { "id": "FR-005", "text": "Filter items for owner and object_type on Objects page", "status": "covered" },
+      { "id": "FR-006", "text": "Object Detail modal, full ALL_OBJECTS row for selected object_id, read-only", "status": "covered", "notes": "Launch mechanism resolved as a generic selection button (user-selected option 3, 'Boton generico de seleccion') after both region-level and column-level Interactive Report link properties were confirmed rejected by live apex validate against dev_ai_1 (build 26.1.0+3102): 'Invalid property: target' / 'Invalid property: linkText'. Implemented as a radio-button Select column (APEX$SELECT_ROW, columnFormatting.htmlExpression) plus a page-level VIEW_DETAIL button plus an executeJsCode dynamic action (apex.navigation.dialog / apex.message.showErrors). Confirmed live-clean twice. See application-spec.md Behavior Coverage, 'FR-006 Resolution'." },
+      { "id": "FR-007", "text": "Tables IR over ALL_TABLES", "status": "covered" },
+      { "id": "FR-008", "text": "Login page", "status": "covered" },
+      { "id": "FR-009", "text": "Shared LOV for owners sourced from ALL_USERS", "status": "covered" },
+      { "id": "FR-010", "text": "Navigation menu: Home, Objects, Tables", "status": "covered" },
+      { "id": "FR-011", "text": "Breadcrumbs on every page", "status": "covered" },
+      { "id": "FR-012", "text": "Default authentication and authorization", "status": "covered" },
+      { "id": "FR-013", "text": "Read-only application, no insert/update/delete anywhere", "status": "covered" },
+      { "id": "FR-014", "text": "Only the exact verified columns may be referenced", "status": "covered" },
+      { "id": "FR-015", "text": "LF line endings in every .apx file", "status": "covered" },
+      { "id": "DW-001", "text": "Global Page 0 (scaffold default)", "status": "covered" }
+    ],
+    "objects": [
+      {
+        "object": "ALL_OBJECTS",
+        "type": "view",
+        "columnsUsed": ["OWNER", "OBJECT_NAME", "OBJECT_TYPE", "OBJECT_ID", "STATUS", "CREATED", "LAST_DDL_TIME", "ORACLE_MAINTAINED"],
+        "evidenceSource": "user_asserted",
+        "consumingPages": [1, 100, 110]
+      },
+      {
+        "object": "ALL_TABLES",
+        "type": "view",
+        "columnsUsed": ["OWNER", "TABLE_NAME", "TABLESPACE_NAME", "NUM_ROWS", "LAST_ANALYZED", "PARTITIONED"],
+        "evidenceSource": "user_asserted",
+        "consumingPages": [200]
+      },
+      {
+        "object": "ALL_USERS",
+        "type": "view",
+        "columnsUsed": ["USERNAME"],
+        "evidenceSource": "user_asserted",
+        "consumingPages": [100],
+        "note": "USER_ID and CREATED verified but not used by any page requirement"
+      }
+    ]
+  },
+  "pageInventory": [
+    {
+      "page": 0,
+      "name": "Global Page",
+      "type": "global",
+      "derivedWorkflowId": "DW-001",
+      "regions": []
+    },
+    {
+      "page": 1,
+      "name": "Home",
+      "type": "dashboard",
+      "requirementId": "FR-001",
+      "menu": true,
+      "breadcrumbEntry": "home",
+      "regions": [
+        { "name": "breadcrumb-bar", "family": "breadcrumb", "sourceShape": "none/staticContent" },
+        { "name": "dashboard-kpis", "family": "themeTemplateComponent/metricCard", "sourceShape": "sql" },
+        { "name": "objects-by-type", "family": "chart", "sourceShape": "sql" }
+      ]
+    },
+    {
+      "page": 100,
+      "name": "Objects",
+      "type": "interactiveReport",
+      "requirementId": "FR-003",
+      "menu": true,
+      "breadcrumbEntry": "objects",
+      "regions": [
+        { "name": "breadcrumb-bar", "family": "breadcrumb", "sourceShape": "none/staticContent" },
+        { "name": "filters", "family": "staticContent", "sourceShape": "none/staticContent" },
+        { "name": "objects", "family": "interactiveReport", "sourceShape": "sql" }
+      ]
+    },
+    {
+      "page": 110,
+      "name": "Object Detail",
+      "type": "form",
+      "requirementId": "FR-006",
+      "menu": false,
+      "pageMode": "modalDialog",
+      "regions": [
+        { "name": "object-detail", "family": "form", "sourceShape": "sql", "readOnly": true }
+      ]
+    },
+    {
+      "page": 200,
+      "name": "Tables",
+      "type": "interactiveReport",
+      "requirementId": "FR-007",
+      "menu": true,
+      "breadcrumbEntry": "tables",
+      "regions": [
+        { "name": "breadcrumb-bar", "family": "breadcrumb", "sourceShape": "none/staticContent" },
+        { "name": "tables", "family": "interactiveReport", "sourceShape": "sql" }
+      ]
+    },
+    {
+      "page": 9999,
+      "name": "Login Page",
+      "type": "login",
+      "derivedWorkflowId": "DW-002",
+      "regions": []
+    }
+  ],
+  "compositionPlan": {
+    "applicationScope": "single new application, 5 user-relevant pages",
+    "pageGroups": [],
+    "sharedLovs": ["owners"],
+    "navigationMenu": [
+      { "label": "Home", "page": 1, "icon": "fa-home" },
+      { "label": "Objects", "page": 100, "icon": "fa-list" },
+      { "label": "Tables", "page": 200, "icon": "fa-table" }
+    ],
+    "breadcrumbs": [
+      { "page": 1, "entry": "home", "root": true },
+      { "page": 100, "entry": "objects", "parentEntry": "home" },
+      { "page": 200, "entry": "tables", "parentEntry": "home" }
+    ],
+    "modalTargets": [
+      {
+        "sourcePage": 100,
+        "sourceRegion": "objects",
+        "sourceMechanism": "selectionButton",
+        "selectionColumn": "APEX$SELECT_ROW",
+        "button": "VIEW_DETAIL",
+        "dynamicAction": "open-object-detail",
+        "targetPage": 110,
+        "targetItems": { "P110_OBJECT_ID": "<selected row's object_id, set client-side>" },
+        "keyColumn": "OBJECT_ID",
+        "presentation": "modalDialog",
+        "closeRefreshRegion": "objects",
+        "requirementId": "FR-006",
+        "resolutionNote": "Region-level and column-level declarative Interactive Report link properties both failed live apex validate on dev_ai_1 (build 26.1.0+3102). Resolved via a JS-backed generic selection button (executeJsCode + apex.navigation.dialog), per user decision. Confirmed live-clean."
+      }
+    ],
+    "modalTargetsBlockedHistory": [
+      {
+        "sourcePage": 100,
+        "sourceRegion": "objects",
+        "sourceColumn": "OBJECT_NAME",
+        "targetPage": 110,
+        "targetItems": { "P110_OBJECT_ID": "#OBJECT_ID#" },
+        "keyColumn": "OBJECT_ID",
+        "presentation": "modalDialog",
+        "closeRefreshRegion": "objects",
+        "requirementId": "FR-006",
+        "status": "superseded",
+        "blockedReason": "Live apex validate (build 26.1.0+3102, connection dev_ai_1) rejected both region-level (link.linkColumn/target/linkIcon) and column-level (column.link.target/linkText) Interactive Report link properties with 'Invalid property: target' / 'Invalid property: linkText'. Superseded by the selectionButton mechanism in modalTargets above."
+      }
+    ],
+    "pageActions": [
+      {
+        "page": 100,
+        "label": "View Detail",
+        "buttonName": "VIEW_DETAIL",
+        "targetPage": 110,
+        "placement": "interactiveReportToolbar",
+        "requirementId": "FR-006"
+      }
+    ],
+    "managementHubPages": [],
+    "managementHubEntries": []
+  },
+  "richUiPatternPlan": [
+    {
+      "pattern": "metricCard",
+      "page": 1,
+      "region": "dashboard-kpis",
+      "nativeComponent": "themeTemplateComponent/metricCard",
+      "evidence": "FR-001; metric-card._common.md",
+      "notes": "4-row UNION ALL source, one row per KPI, appearance.template @/blank-with-attributes"
+    },
+    {
+      "pattern": "chart",
+      "page": 1,
+      "region": "objects-by-type",
+      "nativeComponent": "region type=chart, chart.type=bar, chartAppearance.orientation=horizontal",
+      "evidence": "FR-002; compiler-truth componentTypeId 7810 (NATIVE_JET_CHART)",
+      "notes": "Single series, top 10 object_type by count desc"
+    },
+    {
+      "pattern": "interactiveReport",
+      "page": 100,
+      "region": "objects",
+      "nativeComponent": "region type=interactiveReport",
+      "evidence": "FR-003, FR-004, FR-005",
+      "notes": "savedReport primaryDefault filter (OBJECT_TYPE != SYNONYM, removable); highlight on STATUS = INVALID. Link to page 110 via APEX$SELECT_ROW radio column + VIEW_DETAIL button + executeJsCode dynamic action, see compositionPlan.modalTargets."
+    },
+    {
+      "pattern": "selectionButton",
+      "page": 100,
+      "region": "objects",
+      "nativeComponent": "column APEX$SELECT_ROW (columnFormatting.htmlExpression radio input) + button VIEW_DETAIL + dynamicAction open-object-detail (executeJsCode)",
+      "evidence": "FR-006; compiler-truth componentTypeId 7030 confirms NATIVE_ROW_SELECTOR exists at the Oracle APEX metadata level but has no supported APEXlang authoring path (schema/local-lint reject the rowSelection block)",
+      "notes": "User-selected resolution (option 3) after both declarative link mechanisms failed live apex validate"
+    },
+    {
+      "pattern": "readOnlyForm",
+      "page": 110,
+      "region": "object-detail",
+      "nativeComponent": "region type=form (no edit block), displayOnly items",
+      "evidence": "FR-006, FR-013",
+      "notes": "formInitialization process only, no formAutoRowProcessing, no DML"
+    },
+    {
+      "pattern": "interactiveReport",
+      "page": 200,
+      "region": "tables",
+      "nativeComponent": "region type=interactiveReport",
+      "evidence": "FR-007",
+      "notes": "Plain report, no filters/links/highlights requested"
+    }
+  ],
+  "lovPlan": {
+    "sharedLovs": [
+      {
+        "id": "owners",
+        "displayColumn": "USERNAME",
+        "returnColumn": "USERNAME",
+        "sourceObject": "ALL_USERS",
+        "sourceType": "table",
+        "orderBy": "USERNAME",
+        "evidence": "FR-009",
+        "consumingItems": ["P100_OWNER"]
+      }
+    ],
+    "inlineLovs": [
+      {
+        "item": "P100_OBJECT_TYPE",
+        "displayColumn": "OBJECT_TYPE",
+        "returnColumn": "OBJECT_TYPE",
+        "sourceObject": "ALL_OBJECTS",
+        "sourceType": "sqlQuery",
+        "sqlQuery": "select distinct object_type, object_type from all_objects where object_type != 'SYNONYM' order by object_type",
+        "evidence": "FR-005",
+        "consumingItems": ["P100_OBJECT_TYPE"]
+      }
+    ]
+  },
+  "behaviorPlan": {
+    "modalTargets": [
+      {
+        "sourcePage": 100,
+        "sourceRegion": "objects",
+        "sourceMechanism": "selectionButton",
+        "targetPage": 110,
+        "targetItems": { "P110_OBJECT_ID": "<selected row's object_id, set client-side>" },
+        "keyColumn": "OBJECT_ID",
+        "presentation": "modalDialog",
+        "closeRefreshRegion": "objects",
+        "requirementId": "FR-006"
+      }
+    ],
+    "pageActions": [
+      {
+        "page": 100,
+        "label": "View Detail",
+        "buttonName": "VIEW_DETAIL",
+        "targetPage": 110,
+        "placement": "interactiveReportToolbar",
+        "requirementId": "FR-006"
+      }
+    ],
+    "parentChildContext": [],
+    "validations": [
+      {
+        "page": 100,
+        "trigger": "VIEW_DETAIL clicked with no row selected",
+        "behavior": "apex.message.showErrors(['Select a row before choosing View Detail.'])",
+        "requirementId": "FR-006"
+      }
+    ],
+    "formContext": [
+      {
+        "page": 110,
+        "item": "P110_OBJECT_ID",
+        "source": "Set client-side by Page 100's open-object-detail dynamic action, from the selected row's object_id, via a hand-built f?p= URL passed to apex.navigation.dialog().",
+        "editable": false,
+        "visible": false,
+        "requirementId": "FR-006"
+      }
+    ],
+    "formDefaults": [],
+    "refreshDependencies": [
+      {
+        "eventSource": "page 110 dialog",
+        "event": "apexafterclosedialog",
+        "affectedRegion": "objects (page 100)",
+        "behavior": "refresh",
+        "requirementId": "FR-006"
+      }
+    ],
+    "security": [
+      {
+        "scope": "application",
+        "coverageType": "authorization",
+        "behavior": "Default authenticated-user assumption; no custom roles",
+        "requirementId": "FR-012"
+      }
+    ]
+  },
+  "testPlan": [
+    { "scenario": "Dashboard loads", "requirementId": "FR-001,FR-002", "pages": [1], "expectedResult": "4 KPI cards + horizontal bar chart render, synonyms excluded", "validationMethod": "live runtime validate (check-only)" },
+    { "scenario": "Objects report default state", "requirementId": "FR-003,FR-004", "pages": [100], "expectedResult": "Non-synonym objects shown by default, INVALID rows highlighted, filter removable", "validationMethod": "live runtime validate (check-only)" },
+    { "scenario": "Owner/type filters", "requirementId": "FR-005,FR-009", "pages": [100], "expectedResult": "Selecting owner/object type narrows the report", "validationMethod": "local validation + live check-only" },
+    { "scenario": "Object detail drill-down via selection button", "requirementId": "FR-006", "pages": [100, 110], "expectedResult": "Selecting a row's radio then clicking View Detail opens a read-only modal with the full row for that object_id; clicking View Detail with nothing selected shows an error message instead; closing the dialog refreshes Page 100", "validationMethod": "live runtime validate (check-only) -- confirmed twice" },
+    { "scenario": "Tables report", "requirementId": "FR-007", "pages": [200], "expectedResult": "IR shows the 6 required ALL_TABLES columns", "validationMethod": "local validation + live check-only" },
+    { "scenario": "Read-only guarantee", "requirementId": "FR-013", "pages": [1, 100, 110, 200], "expectedResult": "No Create/Save/Delete controls or DML processes anywhere", "validationMethod": "grammar audit + compiler-truth audit" },
+    { "scenario": "Column allowlist", "requirementId": "FR-014", "pages": [1, 100, 110, 200], "expectedResult": "Every column reference traces to the verified list", "validationMethod": "manual source-evidence cross-check" },
+    { "scenario": "Navigation and breadcrumbs", "requirementId": "FR-010,FR-011", "pages": [1, 100, 200], "expectedResult": "Menu entries and breadcrumb trail correct", "validationMethod": "local validation" }
+  ]
+}
