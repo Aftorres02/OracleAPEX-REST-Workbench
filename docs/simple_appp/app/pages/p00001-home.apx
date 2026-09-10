@@ -1,0 +1,102 @@
+page 1 (
+    name: Home
+    alias: HOME
+    title: Home
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+
+    region app-name (
+        name: Home
+        title: &APP_TITLE.
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+        }
+        image {
+            fileUrl: #APP_FILES#icons/app-icon-512.png
+        }
+    )
+
+    region welcome (
+        name: Welcome
+        title: Welcome
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P1_CURRENT_USER (
+        type: displayOnly
+        label {
+            label: Connected User
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @welcome
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            type: item
+            item: APP_USER
+        }
+    )
+
+    pageItem P1_CURRENT_TIME (
+        type: displayOnly
+        label {
+            label: Current Time
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @welcome
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                to_char(systimestamp, 'HH24:MI:SS "on" DD-MON-YYYY')
+                ```
+        }
+    )
+
+)

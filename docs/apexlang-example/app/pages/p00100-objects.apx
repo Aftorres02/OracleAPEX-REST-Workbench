@@ -1,0 +1,395 @@
+page 100 (
+    name: Objects
+    alias: OBJECTS
+    title: Objects
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Browse all_objects rows for the target instance. Synonyms are excluded by default -- remove the Object Type filter chip in the report toolbar to see them. Use the Owner and Object Type filters to narrow the list. Select a row using the Select column, then choose View Detail to open its full row.
+    }
+
+    region breadcrumb-bar (
+        name: Objects
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 5
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region filters (
+        name: "{filters}"
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region objects (
+        name: Objects
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select null as apex$select_row,
+                       owner,
+                       object_name,
+                       object_type,
+                       object_id,
+                       status,
+                       created,
+                       last_ddl_time
+                  from all_objects
+                 where (:P100_OWNER is null or owner = :P100_OWNER)
+                   and (:P100_OBJECT_TYPE is null or object_type = :P100_OBJECT_TYPE)
+                ```
+            pageItemsToSubmit: P100_OWNER,P100_OBJECT_TYPE
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+        }
+
+        column APEX$SELECT_ROW (
+            type: plainText
+            heading {
+                heading: Select
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: STRING
+            }
+            columnFormatting {
+                htmlExpression: <input type="radio" name="P100_SELECT_ROW" value="#OBJECT_ID#" aria-label="Select this row">
+            }
+            enableUsersTo {
+                sort: false
+                filter: false
+            }
+        )
+
+        column OBJECT_ID (
+            type: hidden
+            heading {
+                heading: Object Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column OWNER (
+            type: plainText
+            heading {
+                heading: Owner
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column OBJECT_NAME (
+            type: plainText
+            heading {
+                heading: Object Name
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+            comments {
+                comments: Display Label: Object Name. Display in Report: true. Display in Form: false. Format Mask: none. Value Required: false. Read Only: true. Primary Display Column: true. Authorization Scheme: none. Object Detail (page 110) is opened via the Select column plus the View Detail button, not a column link -- both region-level and column-level Interactive Report link properties are rejected live on build 26.1.0+3102.
+            }
+        )
+
+        column OBJECT_TYPE (
+            type: plainText
+            heading {
+                heading: Object Type
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: STRING
+            }
+            comments {
+                comments: Display Label: Status. Display in Report: true. Display in Form: false. Format Mask: none. Value Required: false. Read Only: true. Primary Display Column: false. Authorization Scheme: none. INVALID rows are highlighted by the default saved report's highlight rule.
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 60
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+        column LAST_DDL_TIME (
+            type: plainText
+            heading {
+                heading: Last Ddl Time
+            }
+            layout {
+                sequence: 70
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI:SS
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+        savedReport primary-default (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            filter exclude-synonyms (
+                type: column
+                column: OBJECT_TYPE
+                operator: !=
+                value: SYNONYM
+            )
+
+            highlight invalid-objects (
+                name: Invalid Objects
+                condition {
+                    column: STATUS
+                    operator: =
+                    value: INVALID
+                }
+                colors {
+                    background: #FFCDD2
+                }
+                execution {
+                    sequence: 10
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P100_OWNER (
+        type: selectList
+        label {
+            label: Owner
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @filters
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        lov {
+            type: sharedComponent
+            lov: @owners
+            displayNullValue: true
+            nullDisplayValue: &SELECT_LABEL.
+        }
+        help {
+            helpText: Limit the report to objects owned by the selected schema. Leave blank to include every owner.
+        }
+    )
+
+    pageItem P100_OBJECT_TYPE (
+        type: selectList
+        label {
+            label: Object Type
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @filters
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select distinct object_type as object_type_label,
+                       object_type as object_type_return
+                  from all_objects
+                 where object_type != 'SYNONYM'
+                 order by object_type_label
+                ```
+            displayNullValue: true
+            nullDisplayValue: &SELECT_LABEL.
+        }
+        help {
+            helpText: Limit the report to a single object type. Leave blank to include every type.
+        }
+    )
+
+    button view-detail (
+        buttonName: VIEW_DETAIL
+        label: View Detail
+        layout {
+            sequence: 10
+            region: @objects
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+            icon: fa-eye
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction open-object-detail (
+        name: Open Object Detail
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @view-detail
+        }
+
+        action open-object-detail-dialog (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    var lObjectId = $("input[name='P100_SELECT_ROW']:checked").val();
+                    if (lObjectId) {
+                      apex.navigation.dialog(
+                        "f?p=" + $v("pFlowId") + ":110:" + $v("pInstance") + "::NO:110:P110_OBJECT_ID:" + lObjectId,
+                        {
+                            title: "Object Detail",
+                            height: "480",
+                            width: "640",
+                            modal: true
+                        }
+                      );
+                    } else {
+                      apex.message.showErrors([
+                        {
+                            type: "error",
+                            location: "page",
+                            message: "Select a row before choosing View Detail."
+                        }
+                      ]);
+                    }
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-objects-on-close (
+        name: Refresh On Close
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @objects
+        }
+
+        action refresh-objects (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @objects
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)

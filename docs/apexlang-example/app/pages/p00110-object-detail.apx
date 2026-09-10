@@ -1,0 +1,344 @@
+page 110 (
+    name: Object Detail
+    alias: OBJECT-DETAIL
+    title: Object Detail
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Read-only view of the selected all_objects row. Close this dialog to return to the Objects report.
+    }
+
+    region object-detail (
+        name: Object Detail
+        type: form
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select owner,
+                       object_name,
+                       object_type,
+                       object_id,
+                       status,
+                       created,
+                       last_ddl_time,
+                       oracle_maintained
+                  from all_objects
+                 where object_id = :P110_OBJECT_ID
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P110_OBJECT_ID (
+        type: hidden
+        layout {
+            sequence: 5
+            region: @object-detail
+            slot: regionBody
+        }
+        source {
+            formRegion: @object-detail
+            column: OBJECT_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P110_OBJECT_ID_DISPLAY (
+        type: displayOnly
+        label {
+            label: Object Id
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            type: item
+            item: P110_OBJECT_ID
+        }
+    )
+
+    pageItem P110_OWNER (
+        type: displayOnly
+        label {
+            label: Owner
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: OWNER
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_OBJECT_NAME (
+        type: displayOnly
+        label {
+            label: Object Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: OBJECT_NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_OBJECT_TYPE (
+        type: displayOnly
+        label {
+            label: Object Type
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: OBJECT_TYPE
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_STATUS (
+        type: displayOnly
+        label {
+            label: Status
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: STATUS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_CREATED (
+        type: displayOnly
+        label {
+            label: Created
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: CREATED
+            dataType: date
+        }
+    )
+
+    pageItem P110_LAST_DDL_TIME (
+        type: displayOnly
+        label {
+            label: Last Ddl Time
+            alignment: left
+        }
+        layout {
+            sequence: 70
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: LAST_DDL_TIME
+            dataType: date
+        }
+    )
+
+    pageItem P110_ORACLE_MAINTAINED (
+        type: displayOnly
+        label {
+            label: Oracle Maintained
+            alignment: left
+        }
+        layout {
+            sequence: 80
+            region: @object-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        source {
+            formRegion: @object-detail
+            column: ORACLE_MAINTAINED
+            dataType: varchar2
+        }
+    )
+
+    button close (
+        buttonName: CLOSE
+        label: Close
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction close-dialog (
+        name: Close Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @close
+        }
+
+        action native-dialog-close (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process initialize-object-detail (
+        name: Initialize Object Detail
+        type: formInitialization
+        formRegion: @object-detail
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+)
