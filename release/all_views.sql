@@ -1,3 +1,5 @@
 -- Listing for views
-prompt @../views/*.sql
-@../views/*.sql
+-- No views exist yet (views/ only has .gitkeep -- views start in Phase 1+,
+-- see docs/base/implementation_plan.md). Add one explicit line per view
+-- file here once views exist, e.g.:
+--   @../views/arw_endpoints_vw.sql
