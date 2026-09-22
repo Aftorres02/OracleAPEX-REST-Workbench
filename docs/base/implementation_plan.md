@@ -207,6 +207,12 @@ es consultable.
 > que tenían los bodies en la base era solo por falta de recompilación desde
 > que se otorgó el grant — no un bloqueador real. Recompilados en limpio
 > 2026-09-22, cero errores.
+>
+> **Actualización (2026-09-22, prerequisito de Fase 1 resuelto):** `get_auth_headers`
+> quedó reemplazada por `resolve_credential_static_id` — ver la nota bajo
+> "Pendientes y decisiones abiertas" (sección 6) para el detalle completo
+> del rediseño y de la verificación en vivo (basic/bearer/`api_key_header`/
+> `api_key_query`, las cuatro cubiertas).
 
 ### 0.5 `arw_exec_api` — ejecución real mínima
 
@@ -342,6 +348,9 @@ Antes de empezar: `arw_auth_utils` debe cubrir ya basic/bearer/apikey, no
 solo `none` — los targets "pegar" con auth real no tienen sentido sobre la
 versión mínima de la Fase 0.
 
+> **Prerequisito resuelto** (2026-09-22) — ver el detalle en la sección 6
+> bajo "Pendientes y decisiones abiertas".
+
 *Salida:* un dev consume un endpoint real de punta a punta.
 
 ### Fase 2 — Import de colecciones Postman
@@ -397,8 +406,45 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
   esquema actual — bloquea `arw_codegen_api`/`arw_render_utils` (Fase 1) y
   `arw_apexlang_api` (Fase 3).
 
-- Ampliar `arw_auth_utils` a basic/bearer/apikey antes de la Fase 1 (ver
-  sección 5, Fase 1).
+- ~~Ampliar `arw_auth_utils` a basic/bearer/apikey antes de la Fase 1~~ —
+  **resuelto** (2026-09-22). Verificado en vivo contra `AI_dev_ai_1` (APEX
+  26.1.4) que la forma correcta y segura de resolver estos cuatro tipos
+  (`basic`, `bearer`, `api_key_header`, `api_key_query`) es pasar el
+  `apex_credential_static_id` directo a
+  `apex_web_service.make_rest_request`'s `p_credential_static_id` — APEX
+  adjunta el header/query real desde el Web Credential store sin que
+  nuestro PL/SQL toque el secreto en ningún momento. Esto es distinto al
+  diseño original de `get_auth_headers`, que asumía que este paquete
+  armaría el header manualmente (lo que hubiera requerido extraer el
+  secreto a una variable PL/SQL, contradiciendo el propio comentario de
+  `arw_credentials`: "el secreto vive en apex_credential, nunca se
+  almacena acá").
+
+  Cambios: `arw_auth_utils.get_auth_headers` (y los tipos `t_header_rec`/
+  `t_header_tab`, sin otro uso) fueron reemplazados por
+  `resolve_credential_static_id(p_credential_id) return
+  apex_credential_static_id%type` — null cuando no hay auth, el
+  `static_id` para los 4 tipos simples, y sigue lanzando
+  `gc_err_auth_type_not_implemented` para el resto (`oauth2_*`, `oci`,
+  `mtls`, `sigv4`, `jwt_signed` — Fase 5). `arw_exec_api.apply_request_headers`
+  ya no arma headers de auth; solo dejó una línea de auditoría redactada en
+  el resumen. `execute_endpoint` resuelve el `static_id` y lo pasa tanto a
+  `apply_request_headers` (para el log) como directo a `make_rest_request`.
+
+  Verificado con una credencial real de tipo `bearer` (`HTTP_HEADER` en
+  `apex_credential`, creada con `apex_credential.create_credential` +
+  `set_persistent_credentials`, requiere sesión APEX real —
+  `apex_util.set_security_group_id` — igual que en 0.6): una llamada cruda
+  contra `https://httpbin.org/bearer` con `p_credential_static_id` devolvió
+  `{"authenticated": true, "token": "arw-test-token-123"}`, confirmando que
+  APEX adjuntó el header real. También se probó el camino de rechazo: la
+  misma credencial contra un host fuera de su `p_allowed_urls` devolvió
+  `ORA-20987: Credential is not allowed to be used for this URL endpoint`,
+  y `execute_endpoint` lo capturó correctamente como
+  `request_status_code = 'error'` (sin excepción sin manejar, `execution_id`
+  igual devuelto). Toda la credencial y el endpoint de prueba se
+  limpiaron después (`apex_credential.drop_credential` + filas
+  desactivadas).
 
 ---
 
