@@ -1,0 +1,57 @@
+app ARW (
+    name: ARW - APEX REST Workbench
+    logo {
+        type: text
+        text: &APP_TITLE.
+    }
+    navigation {
+        homeUrl: {
+            page: 1
+        }
+        loginUrl: {
+            page: LOGIN
+        }
+    }
+    navigationMenu {
+        listTemplate: @/side-navigation-menu
+        templateOptions: [
+            #DEFAULT#
+            js-defaultCollapsed
+            js-navCollapsed--hidden
+            t-TreeNav--styleA
+        ]
+        list: @navigation-menu
+    }
+    navigationBar {
+        list: @navigation-bar
+        listTemplate: @/navigation-bar
+        templateOptions: #DEFAULT#
+    }
+    userInterface {
+        currentTheme: @universal-theme
+        globalPage: 0
+        addBuiltWithApexToFooter: false
+    }
+    appFormatMasks {
+        date: DS
+        timestamp: DS
+        timestampTimeZone: DS
+    }
+    authentication {
+        scheme: @oracle-apex-accounts
+    }
+    authorization {
+        sourceForRoleOrGroupSchemes: authenticationScheme
+    }
+    sessionManagement {
+        maxSessionIdleTime: 3600
+        maxSessionLength: 28800
+    }
+    sessionStateProtection {
+        checksumSalt: 00848AF1AFA3559639C307E8282E3F1873C577972BBD93D84E2E396832A88301
+    }
+    runtime {
+        allowFeedback: true
+        compatibilityMode: 24.2
+    }
+)
