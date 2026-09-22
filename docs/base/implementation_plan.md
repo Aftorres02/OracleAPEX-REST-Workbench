@@ -141,6 +141,13 @@ columnas de auditoría + trigger compuesto según `ddl-conventions.md` §4-5.
 Descompone el bloque único "Modelo de datos + preflight" de
 `IMPLEMENTATION.md` §13 en subpasos verificables por separado.
 
+> **Fase 0: completa** (2026-09-22) — los 7 subpasos (0.1-0.7) están
+> verificados en vivo contra `AI_dev_ai_1`, incluyendo el criterio de salida
+> completo de `IMPLEMENTATION.md` §13: `arw_exec_api.execute_endpoint`
+> ejecutó una llamada real contra el endpoint semilla y quedó la fila
+> correspondiente en `arw_executions`. Antes de arrancar la Fase 1, ver la
+> sección 6 — `arw_auth_utils` todavía solo cubre `auth_type_code = 'none'`.
+
 ### 0.1 Confirmar prefijo
 
 - [x] `arw_` heredado de `CONCEPT.md`/`IMPLEMENTATION.md` — sin bloqueo.
@@ -203,14 +210,14 @@ es consultable.
 
 ### 0.5 `arw_exec_api` — ejecución real mínima
 
-- [ ] Arma la petición (limpia `apex_web_service.g_request_headers` al
+- [x] Arma la petición (limpia `apex_web_service.g_request_headers` al
   inicio, ver `IMPLEMENTATION.md` §12), llama con `apex_web_service`, escribe
   el resultado en `arw_executions`.
 
 *Salida:* invocado desde SQLcl contra el endpoint de prueba de 0.2, devuelve
 status 200 y body no vacío, y queda una fila en `arw_executions`.
 
-> **Estado: código compila y quedó verificado en parte** (2026-09-22) —
+> **Estado: ejecutado y verificado de punta a punta** (2026-09-22) —
 > `packages/arw_exec_api.pks`/`.pkb` compilan `VALID` contra `AI_dev_ai_1`.
 > Bug real corregido antes de que compilara: los 6 helpers privados del body
 > (`extract_host`, `reject_unsupported_params`, `build_query_string`,
@@ -219,13 +226,13 @@ status 200 y body no vacío, y queda una fila en `arw_executions`.
 > §7, pero un identificador PL/SQL no puede empezar con `_` (`PLS-00103`).
 > Renombrados sin el prefijo.
 >
-> **No se puede marcar hecho todavía** — no por un bug de este paquete, sino
-> porque `execute_endpoint` llama primero a `arw_preflight_api.run_preflight`
-> y se niega a salir si hay algún check en `fail` (por diseño, ver 0.7). En
-> esta base, `check_network_acl` siempre reporta `fail` para cualquier host
-> porque `WKSP_DEVAI1` no tiene ninguna ACE de red registrada — confirmado
-> por consulta directa a `user_network_acl_privileges` (0 filas). Ver el
-> bloqueador detallado en 0.7.
+> `execute_endpoint(p_endpoint_id => 1, p_environment_id => 1)` invocado en
+> vivo contra el endpoint semilla de 0.2 tras resolver el bloqueador de ACL
+> (ver 0.6/0.7): devolvió `execution_id=1`, y la fila en `arw_executions`
+> quedó con `request_status_code='success'`, `http_status_code=200`,
+> `elapsed_ms=240` y el body real de `jsonplaceholder.typicode.com/todos/1`
+> (`{"userId": 1, "id": 1, "title": "delectus aut autem", "completed": false}`).
+> Salida cumplida.
 
 ### 0.6 `arw_preflight_api` — checklist de supervivencia
 
@@ -260,53 +267,62 @@ no solo el éxito.
 >   (`status_code = fail`) — no probado con una credencial real todavía
 >   porque Fase 0 solo usa `p_credential_id = null` (ver sección 6).
 >
-> Invocado en vivo dos veces por SQLcl: (1) `run_preflight('jsonplaceholder.typicode.com',
-> null)` → `network_acl=fail` (sin ACE registrada), `wallet_https=pass` (HTTPS
-> real, status 200), `db_apex_version=info` (`Database 23.0, APEX 26.1.4`),
-> `credential_exists=pass`; (2) `run_preflight('this-host-has-no-acl.example.invalid',
-> null)` → `network_acl=fail`, `wallet_https=unknown` (`ORA-29273`),
-> mismos `db_apex_version`/`credential_exists`. `has_failures` devolvió `Y`
-> en ambos casos, correctamente. El checklist detecta fallos reales, no solo
-> éxitos — criterio de salida cumplido.
+> Invocado en vivo por SQLcl, antes y después de resolver el bloqueador de
+> ACL: (1) `run_preflight('jsonplaceholder.typicode.com', null)` — **antes**
+> del grant: `network_acl=fail` (sin ACE registrada), `wallet_https=pass`
+> (HTTPS real, status 200), `db_apex_version=info` (`Database 23.0, APEX
+> 26.1.4`), `credential_exists=pass`, `has_failures=Y`; (2)
+> `run_preflight('this-host-has-no-acl.example.invalid', null)` →
+> `network_acl=fail`, `wallet_https=unknown` (`ORA-29273`), mismos
+> `db_apex_version`/`credential_exists`, `has_failures=Y`; (3) **después**
+> del grant (ver nota de ACL abajo): mismo host real →
+> `network_acl=pass` ("Privilege \"http\" granted..."), `wallet_https=pass`,
+> `db_apex_version=info`, `credential_exists=pass`, `has_failures=N`. El
+> checklist detecta tanto fallos reales como el estado sano — criterio de
+> salida cumplido con los tres casos.
 >
-> **Hallazgo no anticipado por el diseño original:** en esta base (Autonomous
-> DB, carpeta `ADB-AI`), las llamadas HTTP salientes funcionan sin ninguna
-> ACE registrada (`wallet_https` dio `pass` real contra `jsonplaceholder.typicode.com`
-> pese a que `network_acl` reportó `fail` para ese mismo host) — el modelo
-> clásico de `dbms_network_acl_admin`/`user_network_acl_privileges` no
-> parece ser lo que gobierna el egreso en este entorno. Ver 0.7: esto bloquea
-> el camino "éxito" de 0.5 porque `execute_endpoint` corta en cualquier
-> `fail`, incluyendo este que aquí es un falso negativo.
+> **ACL de red — resuelto** (2026-09-22): `WKSP_DEVAI1` no tiene privilegio
+> para ejecutar `dbms_network_acl_admin` directamente (`PLS-00201`, el
+> paquete ni siquiera es visible desde ese schema) — el grant se hizo
+> conectado como el usuario ADMIN de la base, no como `WKSP_DEVAI1`. Una vez
+> otorgada la ACE (`resolve` + `http` para `jsonplaceholder.typicode.com`,
+> confirmada `GRANTED` en `user_network_acl_privileges` desde `WKSP_DEVAI1`),
+> `check_network_acl` pasó a `pass` y el flujo completo de 0.7 funcionó.
+> (El HTTP saliente ya funcionaba *antes* del grant para esta llamada
+> puntual porque `check_wallet` hace su propia llamada real y no depende de
+> `check_network_acl` — pero `execute_endpoint` sí depende de que **todos**
+> los checks pasen, así que el grant era indispensable para que el flujo
+> completo, no solo el wallet-check aislado, funcionara.)
 
 ### 0.7 Integración
 
-- [ ] La ejecución real (0.5) solo corre si el preflight (0.6) pasa.
+- [x] La ejecución real (0.5) solo corre si el preflight (0.6) pasa.
 
 *Salida:* este es el criterio de salida de la Fase 0 completa según
 `IMPLEMENTATION.md` §13 — un endpoint público se ejecuta y el preflight
 reporta correctamente.
 
-> **Estado: mecanismo de bloqueo verificado; camino de éxito pendiente**
-> (2026-09-22) — invocado en vivo: `arw_exec_api.execute_endpoint(p_endpoint_id
-> => 1, p_environment_id => 1)` contra el endpoint semilla de 0.2
-> (`GET https://jsonplaceholder.typicode.com/todos/1`, sin credencial) se
-> negó a salir y lanzó `ORA-20923: Preflight failed for host
-> jsonplaceholder.typicode.com: network_acl: No network ACL entry found...`
-> con el mensaje formateado por `format_failures` — la integración "0.5 solo
-> corre si 0.6 pasa" funciona exactamente como está diseñada.
+> **Estado: ejecutado y verificado — Fase 0 completa** (2026-09-22) —
+> verificados los dos caminos en vivo:
 >
-> Lo que falta para cerrar Fase 0 por completo es el camino de éxito: que
-> `execute_endpoint` efectivamente llegue a llamar y deje una fila en
-> `arw_executions`. Eso requiere resolver el hallazgo de 0.6 — decidir entre
-> (a) registrar la ACE con `dbms_network_acl_admin.append_host_ace` (el
-> mismo snippet que ya sugiere `check_network_acl.corrective_action`) para
-> alinear el check con el modelo clásico, aunque el HTTP ya funcione sin
-> ella en este ADB, o (b) revisar si `check_network_acl` debería tratar "sin
-> ACE" como `unknown` en vez de `fail` cuando corre sobre Autonomous
-> Database, ya que ahí puede no ser la señal correcta. Ninguna opción se
-> aplicó todavía — requiere una acción de grant que no se pudo ejecutar
-> desde esta sesión (bloqueada por el modo de permisos) y/o una decisión de
-> diseño del usuario.
+> - **Bloqueo correcto:** antes del grant de ACL, `arw_exec_api.execute_endpoint(
+>   p_endpoint_id => 1, p_environment_id => 1)` contra el endpoint semilla de
+>   0.2 (`GET https://jsonplaceholder.typicode.com/todos/1`, sin credencial)
+>   se negó a salir y lanzó `ORA-20923: Preflight failed for host
+>   jsonplaceholder.typicode.com: network_acl: No network ACL entry found...`
+>   con el mensaje formateado por `format_failures`.
+>
+> - **Camino de éxito:** una vez registrada la ACE de red (como usuario
+>   ADMIN de la base — `WKSP_DEVAI1` no tiene privilegio para
+>   `dbms_network_acl_admin` directamente, ver la nota de ACL bajo 0.6), el
+>   mismo `execute_endpoint(1, 1)` corrió la llamada real y devolvió
+>   `execution_id=1`, con la fila en `arw_executions` mostrando
+>   `request_status_code='success'`, `http_status_code=200` y el body real.
+>
+> Ambos caminos confirman que "0.5 solo corre si 0.6 pasa" funciona como
+> está diseñado, y que un endpoint público se ejecuta de punta a punta con
+> el preflight reportando correctamente — criterio de salida de la Fase 0
+> cumplido.
 
 ---
 
