@@ -147,23 +147,59 @@ Descompone el bloque único "Modelo de datos + preflight" de
 
 ### 0.2 DDL completo del modelo de datos
 
-- [ ] Crear las 15 tablas de la sección 3 (núcleo + ejecución + discovery +
+- [x] Crear las 15 tablas de la sección 3 (núcleo + ejecución + discovery +
   generación) en una sola migración, con triggers e índices.
-- [ ] Insertar una fila de prueba de punta a punta: 1 collection, 1
+- [x] Insertar una fila de prueba de punta a punta: 1 collection, 1
   environment, 1 endpoint público sin auth (`auth_type_code = 'none'`).
 
 *Salida:* el script corre limpio contra un esquema vacío; la fila de prueba
 es consultable.
+
+> **Estado: ejecutado y verificado** (2026-09-09) — `release/1.0.0.sql`
+> (adaptado de `_release.sql`, sin los pasos de disable/install APEX porque
+> aún no existe app) corrió contra `WKSP_DEVAI1` (workspace `DEV_AI_1`,
+> conexión SQLcl guardada como `AI_dev_ai_1` (guion bajo, no espacio —
+> `docs/apexlang_lessons/README.md` traía `AI dev_ai_1` con espacio hasta
+> el 2026-09-21, cuando se re-verificó en vivo y se corrigió), no
+> `dev_ai_1`. Confirmado por consulta
+> directa: 15 tablas, 15 triggers, 0 objetos inválidos, fila semilla
+> (`collection_id=1`, `environment_id=1`, `endpoint_id=1`) consultable via
+> join. DDL en `tables/*.sql` + `tables/_install_arw_tables.sql`, triggers en
+> `triggers/*.sql` + `triggers/_install_arw_triggers.sql`, seed en
+> `data/arw_seed_phase0_endpoint.sql`, orquestados desde
+> `release/all_tables.sql` / `all_triggers.sql` / `all_data.sql`.
 
 ### 0.3 `arw_endpoint_api` — CRUD mínimo
 
 - [ ] CRUD de endpoint/headers/params/bodies, sin UI todavía. Paralelizable
   con 0.4.
 
+> **Estado:** `packages/arw_endpoint_api.pks`/`.pkb` redactados (create/update
+> /deactivate de endpoint; add/update/remove de headers y params; set/remove
+> de body vía `merge`). Verificado localmente: alineación columna 49,
+> espaciado de 8 líneas en blanco entre unidades, JavaDoc completo. **No
+> compilado aún** — bloqueado por `LOGGER` (ver nota en 0.4). Rango de
+> excepción propio confirmado con el usuario: `-20900` a `-20949`
+> (`gc_err_not_found := -20910`).
+
 ### 0.4 `arw_auth_utils` — versión mínima
 
 - [ ] Solo `auth_type_code = 'none'` por ahora. Paralelizable con 0.3. Se
   ampliará a basic/bearer/apikey antes de la Fase 1 (ver sección 6).
+
+> **Estado:** `packages/arw_auth_utils.pks`/`.pkb` redactados —
+> `get_auth_headers` maneja el caso sin auth (`p_credential_id` null,
+> devuelve tabla vacía) y lanza `gc_err_auth_type_not_implemented` para
+> cualquier credencial real, ya que ningún tipo de auth está implementado
+> todavía. Verificado localmente igual que 0.3.
+>
+> **Bloqueador compartido (0.3 y 0.4):** el paquete `LOGGER` no está
+> instalado en `WKSP_DEVAI1` (confirmado por consulta directa a
+> `all_objects`, sin filtro de owner — no hay ni el objeto ni un sinónimo
+> público). `plsql-standards.md` §8 exige `logger.log`/`log_error` en todo
+> paquete, así que ninguno de estos dos compila todavía. El usuario decidió
+> instalarlo él mismo más adelante — no marcar estas casillas ni compilar
+> hasta confirmar que `LOGGER` ya está instalado.
 
 ### 0.5 `arw_exec_api` — ejecución real mínima
 
