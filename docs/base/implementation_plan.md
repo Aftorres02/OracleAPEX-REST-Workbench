@@ -386,16 +386,42 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
   `.claude/skills/apex-migration/SKILL.md` con pasos reales — hoy son
   placeholders y no se puede depender de ellos como generadores.
 
-- Acceso a APEX 26.1 + SQLcl 26.1.2 para validar salidas `.apx` — bloquea
-  la Fase 3, no la Fase 0/1.
+- ~~Acceso a APEX 26.1 + SQLcl 26.1.2 para validar salidas `.apx`~~ —
+  **resuelto** (2026-09-22). `AI_dev_ai_1` corre APEX `26.1.4` (confirmado
+  vía la vista `apex_release`) y SQLcl local es `26.2.2.0` — ambos superan
+  el mínimo pedido. Confirmado además que el toolchain de validación en sí
+  está disponible, no solo la versión: `apex validate`/`apex import` (SQLcl)
+  y `apexctl.mjs runtime validate`/`runtime doctor`/`apexlang validate`/
+  `apexlang compiler-truth audit` (repo `oracle/skills`, plugin
+  `oracle-skills`) responden con `--help` y aceptan `--db-connection-name`.
+  No se corrió ninguno contra un `.apx` real todavía — eso pasa cuando
+  exista contenido que validar (Fase 3), pero la infraestructura ya no es
+  un bloqueador.
 
-- Ejecutar `query-valid-props.mjs` (repo `oracle/skills`) para confirmar
-  propiedades exactas de `installScript`, `supportingObject` y tipos de
-  `webCredential` disponibles en 26.1 — bloquea Fase 3.
+- Ejecutar `query-valid-props.mjs` (repo `oracle/skills`, mismo plugin,
+  en `apex/apexlang/tools/`) para confirmar propiedades exactas de
+  `installScript`, `supportingObject` y tipos de `webCredential`
+  disponibles en 26.1 — sigue bloqueando Fase 3. La herramienta existe y
+  corre localmente (`--component`, `--component-type-id`, `--json`), pero
+  necesita `--compiler-oracle-home` apuntando a una instalación real (SQL
+  Developer / SQLcl / dbtools) para la verdad respaldada por el compilador
+  — no ejecutado todavía, queda para cuando se arranque Fase 3 en serio.
 
 - Decidir si el generador emite objetos calificados por esquema o asume el
   esquema actual — bloquea `arw_codegen_api`/`arw_render_utils` (Fase 1) y
   `arw_apexlang_api` (Fase 3).
+
+  > **Propuesta de resolución** (2026-09-22, pendiente de confirmación del
+  > usuario — no se marca como cerrada todavía): `arw_target_profiles.target_schema`
+  > ya modela esto — su propio comentario de columna dice "null when the
+  > generator assumes the current schema". Propuesta: por defecto (perfil
+  > sin `target_schema`) el generador emite objetos **sin calificar**
+  > (matching el espíritu de los targets "pegar" — el dev corre el
+  > snippet en su propia sesión/esquema, calificarlo de más solo agrega
+  > ruido); cuando el perfil sí trae `target_schema`, el generador
+  > antepone `<target_schema>.` a cada referencia a tabla/paquete/vista
+  > generada. Esto no requiere cambiar el modelo de datos — ya está
+  > soportado por la columna existente.
 
 - Ampliar `arw_auth_utils` a basic/bearer/apikey antes de la Fase 1 (ver
   sección 5, Fase 1).
