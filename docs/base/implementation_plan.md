@@ -344,6 +344,47 @@ versión mínima de la Fase 0.
 
 *Salida:* un dev consume un endpoint real de punta a punta.
 
+> **Estado (2026-09-22): arranque del build de páginas, vía APEXlang.**
+> Decisión con el usuario: las páginas propias de ARW se autoran a mano
+> como `.apx` (mismo toolchain que Fase 3 formaliza para la salida
+> generada), no en APEX Builder — ver `.claude/skills/apexlang-lessons/SKILL.md`.
+>
+> Primer corte, deliberadamente chico (arrancar por `apex validate`
+> temprano, no al final — ver la sección "Suggested flow" de esa skill):
+> scaffold completo de la app (`apex/arw/` — `application.apx`,
+> `deployments/default.json`, tema Universal Theme, autenticación
+> `oracleApexAccounts`, listas de navegación, página 0 global, página 9999
+> de login) + **página 1 (Home)** con un classic report de colecciones
+> recientes + **página 100 (Collections)** con un interactive report de
+> `arw_collections`, ambas de solo lectura. `apex import icons`/static
+> files se omitieron a propósito (no se usan todavía) siguiendo la regla
+> de la skill "skip unless the app actually uses them".
+>
+> `apex validate -input apex/arw` pasó limpio contra `AI_dev_ai_1` (APEX
+> 26.1.4) — "Validation successful.", cero errores. En el camino, dos
+> bugs reales encontrados y corregidos que no estaban documentados en la
+> skill: una columna `classicReport` con `type: hidden` no acepta bloque
+> `heading`, y **ninguna** columna `classicReport` acepta `source { dataType:
+> ... }` (a diferencia de `interactiveReport`, que sí lo exige) — el
+> template canónico de `classic-report-page.example.md` ya lo mostraba
+> así, el error fue mío por copiar el patrón de columna de
+> `interactive-report-page` sin fijarme en esa diferencia.
+>
+> **`apex import` NO se corrió** — es una escritura real contra el
+> workspace en vivo; la skill exige pedirlo explícitamente, no inferirlo
+> de "seguí". Falta decidir/confirmar antes de importar.
+>
+> **Pendiente, ya identificado:** la página 110 (editor de Collection,
+> modal) necesita un paquete `arw_collections_api` que todavía no existe
+> — este repo no tiene lógica de negocio en páginas (`IMPLEMENTATION.md`
+> §1: "páginas delgadas, base de datos gruesa"), así que el proceso DML
+> de esa página debe llamar a un paquete, no hacer `insert`/`update`
+> directo. Por eso 110 quedó fuera de este primer corte — página 100 es
+> de solo lectura por ahora. Mismo patrón le va a hacer falta a 200/210
+> (Endpoints — aunque para ese ya existe `arw_endpoint_api`) y a
+> 300/310 (Environments — necesita `arw_environments_api`, tampoco
+> existe todavía).
+
 ### Fase 2 — Import de colecciones Postman
 
 Alcance: parseo con `json_table` de `item[]`, `request.header[]`,
