@@ -171,35 +171,35 @@ es consultable.
 
 ### 0.3 `arw_endpoint_api` — CRUD mínimo
 
-- [ ] CRUD de endpoint/headers/params/bodies, sin UI todavía. Paralelizable
+- [x] CRUD de endpoint/headers/params/bodies, sin UI todavía. Paralelizable
   con 0.4.
 
-> **Estado:** `packages/arw_endpoint_api.pks`/`.pkb` redactados (create/update
-> /deactivate de endpoint; add/update/remove de headers y params; set/remove
-> de body vía `merge`). Verificado localmente: alineación columna 49,
-> espaciado de 8 líneas en blanco entre unidades, JavaDoc completo. **No
-> compilado aún** — bloqueado por `LOGGER` (ver nota en 0.4). Rango de
-> excepción propio confirmado con el usuario: `-20900` a `-20949`
-> (`gc_err_not_found := -20910`).
+> **Estado: ejecutado y verificado** (2026-09-22) — `packages/arw_endpoint_api.pks`/
+> `.pkb` compilan `VALID` contra `AI_dev_ai_1` (workspace `WKSP_DEVAI1`, APEX
+> 26.1.4) — `LOGGER` ya está instalado (ver nota bajo 0.4), el bloqueador
+> previo quedó resuelto. Verificado con una invocación real por SQLcl:
+> `create_endpoint` (incluyendo `p_name`, obligatorio y sin default) crea un
+> endpoint, `deactivate_endpoint` lo desactiva. Rango de excepción propio
+> confirmado con el usuario: `-20900` a `-20949` (`gc_err_not_found := -20910`).
 
 ### 0.4 `arw_auth_utils` — versión mínima
 
-- [ ] Solo `auth_type_code = 'none'` por ahora. Paralelizable con 0.3. Se
+- [x] Solo `auth_type_code = 'none'` por ahora. Paralelizable con 0.3. Se
   ampliará a basic/bearer/apikey antes de la Fase 1 (ver sección 6).
 
-> **Estado:** `packages/arw_auth_utils.pks`/`.pkb` redactados —
-> `get_auth_headers` maneja el caso sin auth (`p_credential_id` null,
-> devuelve tabla vacía) y lanza `gc_err_auth_type_not_implemented` para
-> cualquier credencial real, ya que ningún tipo de auth está implementado
-> todavía. Verificado localmente igual que 0.3.
+> **Estado: ejecutado y verificado** (2026-09-22) — `packages/arw_auth_utils.pks`/
+> `.pkb` compilan `VALID` contra `AI_dev_ai_1`. `get_auth_headers(p_credential_id
+> => null)` invocado por SQLcl devuelve una tabla vacía (`header_count=0`),
+> confirmando el caso sin auth. Cualquier credencial real todavía lanza
+> `gc_err_auth_type_not_implemented` (no probado en vivo — no hay credenciales
+> reales en Fase 0, ver sección 6).
 >
-> **Bloqueador compartido (0.3 y 0.4):** el paquete `LOGGER` no está
-> instalado en `WKSP_DEVAI1` (confirmado por consulta directa a
-> `all_objects`, sin filtro de owner — no hay ni el objeto ni un sinónimo
-> público). `plsql-standards.md` §8 exige `logger.log`/`log_error` en todo
-> paquete, así que ninguno de estos dos compila todavía. El usuario decidió
-> instalarlo él mismo más adelante — no marcar estas casillas ni compilar
-> hasta confirmar que `LOGGER` ya está instalado.
+> **Bloqueador previo (0.3 y 0.4) resuelto:** `LOGGER` ya está instalado en
+> `WKSP_DEVAI1` (confirmado 2026-09-22 — sinónimo válido a `LOGGER_USER.LOGGER`,
+> con `SELECT`/`DELETE` directos sobre `LOGGER_LOGS`). El estado `INVALID`
+> que tenían los bodies en la base era solo por falta de recompilación desde
+> que se otorgó el grant — no un bloqueador real. Recompilados en limpio
+> 2026-09-22, cero errores.
 
 ### 0.5 `arw_exec_api` — ejecución real mínima
 
@@ -210,9 +210,26 @@ es consultable.
 *Salida:* invocado desde SQLcl contra el endpoint de prueba de 0.2, devuelve
 status 200 y body no vacío, y queda una fila en `arw_executions`.
 
+> **Estado: código compila y quedó verificado en parte** (2026-09-22) —
+> `packages/arw_exec_api.pks`/`.pkb` compilan `VALID` contra `AI_dev_ai_1`.
+> Bug real corregido antes de que compilara: los 6 helpers privados del body
+> (`extract_host`, `reject_unsupported_params`, `build_query_string`,
+> `get_body`, `apply_request_headers`, `log_execution`) estaban escritos con
+> prefijo `_` — convención de "privado" tomada de `javascript-standards.md`
+> §7, pero un identificador PL/SQL no puede empezar con `_` (`PLS-00103`).
+> Renombrados sin el prefijo.
+>
+> **No se puede marcar hecho todavía** — no por un bug de este paquete, sino
+> porque `execute_endpoint` llama primero a `arw_preflight_api.run_preflight`
+> y se niega a salir si hay algún check en `fail` (por diseño, ver 0.7). En
+> esta base, `check_network_acl` siempre reporta `fail` para cualquier host
+> porque `WKSP_DEVAI1` no tiene ninguna ACE de red registrada — confirmado
+> por consulta directa a `user_network_acl_privileges` (0 filas). Ver el
+> bloqueador detallado en 0.7.
+
 ### 0.6 `arw_preflight_api` — checklist de supervivencia
 
-- [ ] Verifica ACL de red (`dba_host_aces` / `user_network_acl_privileges`),
+- [x] Verifica ACL de red (`dba_host_aces` / `user_network_acl_privileges`),
   wallet (HTTPS), versión de BD/APEX (`v$version`, `apex_release`),
   existencia de credencial (`apex_credentials`). Solo lee catálogos — puede
   desarrollarse en paralelo a 0.5, no depende de que ese paso ya funcione.
@@ -221,6 +238,46 @@ status 200 y body no vacío, y queda una fila en `arw_executions`.
 un caso forzado en rojo (host sin ACL) para confirmar que detecta el fallo,
 no solo el éxito.
 
+> **Estado: ejecutado y verificado** (2026-09-22) — `packages/arw_preflight_api.pks`/
+> `.pkb` compilan `VALID` contra `AI_dev_ai_1`. Dos bugs reales corregidos
+> antes de que compilara:
+>
+> - `check_database_version` llamaba `apex_util.get_apex_version`, que no
+>   existe (`PLS-00302`). Reemplazado por `select version_no from
+>   apex_release` — la vista sí es accesible desde este schema (sinónimo
+>   público → `APEX_260100.APEX_RELEASE`, confirmado en vivo: `26.1.4`),
+>   contrario a lo que asumía el comentario original.
+>
+> - `check_credential` hacía `select count(*) from apex_credentials where
+>   static_id = ...` (`ORA-00942` — esa vista no existe en 26.1, ni en
+>   plural ni singular). Reemplazado por `apex_credential.get_credential_details`,
+>   la API real de 26.1 (paquete, no vista). Detalle importante confirmado
+>   en vivo: esa función exige contexto de sesión APEX
+>   (`apex_util.set_security_group_id`) — llamarla desde una sesión SQLcl
+>   pelada lanza "package variable g_security_group_id must be set" para
+>   cualquier `static_id`, no solo uno inexistente. El check ahora distingue
+>   ese caso (`status_code = unknown`) de un `no_data_found` real
+>   (`status_code = fail`) — no probado con una credencial real todavía
+>   porque Fase 0 solo usa `p_credential_id = null` (ver sección 6).
+>
+> Invocado en vivo dos veces por SQLcl: (1) `run_preflight('jsonplaceholder.typicode.com',
+> null)` → `network_acl=fail` (sin ACE registrada), `wallet_https=pass` (HTTPS
+> real, status 200), `db_apex_version=info` (`Database 23.0, APEX 26.1.4`),
+> `credential_exists=pass`; (2) `run_preflight('this-host-has-no-acl.example.invalid',
+> null)` → `network_acl=fail`, `wallet_https=unknown` (`ORA-29273`),
+> mismos `db_apex_version`/`credential_exists`. `has_failures` devolvió `Y`
+> en ambos casos, correctamente. El checklist detecta fallos reales, no solo
+> éxitos — criterio de salida cumplido.
+>
+> **Hallazgo no anticipado por el diseño original:** en esta base (Autonomous
+> DB, carpeta `ADB-AI`), las llamadas HTTP salientes funcionan sin ninguna
+> ACE registrada (`wallet_https` dio `pass` real contra `jsonplaceholder.typicode.com`
+> pese a que `network_acl` reportó `fail` para ese mismo host) — el modelo
+> clásico de `dbms_network_acl_admin`/`user_network_acl_privileges` no
+> parece ser lo que gobierna el egreso en este entorno. Ver 0.7: esto bloquea
+> el camino "éxito" de 0.5 porque `execute_endpoint` corta en cualquier
+> `fail`, incluyendo este que aquí es un falso negativo.
+
 ### 0.7 Integración
 
 - [ ] La ejecución real (0.5) solo corre si el preflight (0.6) pasa.
@@ -228,6 +285,28 @@ no solo el éxito.
 *Salida:* este es el criterio de salida de la Fase 0 completa según
 `IMPLEMENTATION.md` §13 — un endpoint público se ejecuta y el preflight
 reporta correctamente.
+
+> **Estado: mecanismo de bloqueo verificado; camino de éxito pendiente**
+> (2026-09-22) — invocado en vivo: `arw_exec_api.execute_endpoint(p_endpoint_id
+> => 1, p_environment_id => 1)` contra el endpoint semilla de 0.2
+> (`GET https://jsonplaceholder.typicode.com/todos/1`, sin credencial) se
+> negó a salir y lanzó `ORA-20923: Preflight failed for host
+> jsonplaceholder.typicode.com: network_acl: No network ACL entry found...`
+> con el mensaje formateado por `format_failures` — la integración "0.5 solo
+> corre si 0.6 pasa" funciona exactamente como está diseñada.
+>
+> Lo que falta para cerrar Fase 0 por completo es el camino de éxito: que
+> `execute_endpoint` efectivamente llegue a llamar y deje una fila en
+> `arw_executions`. Eso requiere resolver el hallazgo de 0.6 — decidir entre
+> (a) registrar la ACE con `dbms_network_acl_admin.append_host_ace` (el
+> mismo snippet que ya sugiere `check_network_acl.corrective_action`) para
+> alinear el check con el modelo clásico, aunque el HTTP ya funcione sin
+> ella en este ADB, o (b) revisar si `check_network_acl` debería tratar "sin
+> ACE" como `unknown` en vez de `fail` cuando corre sobre Autonomous
+> Database, ya que ahí puede no ser la señal correcta. Ninguna opción se
+> aplicó todavía — requiere una acción de grant que no se pudo ejecutar
+> desde esta sesión (bloqueada por el modo de permisos) y/o una decisión de
+> diseño del usuario.
 
 ---
 
