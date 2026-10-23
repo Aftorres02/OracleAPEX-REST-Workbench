@@ -395,56 +395,45 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
   `.claude/skills/apex-migration/SKILL.md` con pasos reales — hoy son
   placeholders y no se puede depender de ellos como generadores.
 
-- Acceso a APEX 26.1 + SQLcl 26.1.2 para validar salidas `.apx` — bloquea
-  la Fase 3, no la Fase 0/1.
+- ~~Acceso a APEX 26.1 + SQLcl 26.1.2 para validar salidas `.apx`~~ —
+  **resuelto** (2026-09-22). `AI_dev_ai_1` corre APEX `26.1.4` (confirmado
+  vía la vista `apex_release`) y SQLcl local es `26.2.2.0` — ambos superan
+  el mínimo pedido. Confirmado además que el toolchain de validación en sí
+  está disponible, no solo la versión: `apex validate`/`apex import` (SQLcl)
+  y `apexctl.mjs runtime validate`/`runtime doctor`/`apexlang validate`/
+  `apexlang compiler-truth audit` (repo `oracle/skills`, plugin
+  `oracle-skills`) responden con `--help` y aceptan `--db-connection-name`.
+  No se corrió ninguno contra un `.apx` real todavía — eso pasa cuando
+  exista contenido que validar (Fase 3), pero la infraestructura ya no es
+  un bloqueador.
 
-- Ejecutar `query-valid-props.mjs` (repo `oracle/skills`) para confirmar
-  propiedades exactas de `installScript`, `supportingObject` y tipos de
-  `webCredential` disponibles en 26.1 — bloquea Fase 3.
+- Ejecutar `query-valid-props.mjs` (repo `oracle/skills`, mismo plugin,
+  en `apex/apexlang/tools/`) para confirmar propiedades exactas de
+  `installScript`, `supportingObject` y tipos de `webCredential`
+  disponibles en 26.1 — sigue bloqueando Fase 3. La herramienta existe y
+  corre localmente (`--component`, `--component-type-id`, `--json`), pero
+  necesita `--compiler-oracle-home` apuntando a una instalación real (SQL
+  Developer / SQLcl / dbtools) para la verdad respaldada por el compilador
+  — no ejecutado todavía, queda para cuando se arranque Fase 3 en serio.
 
 - Decidir si el generador emite objetos calificados por esquema o asume el
   esquema actual — bloquea `arw_codegen_api`/`arw_render_utils` (Fase 1) y
   `arw_apexlang_api` (Fase 3).
 
-- ~~Ampliar `arw_auth_utils` a basic/bearer/apikey antes de la Fase 1~~ —
-  **resuelto** (2026-09-22). Verificado en vivo contra `AI_dev_ai_1` (APEX
-  26.1.4) que la forma correcta y segura de resolver estos cuatro tipos
-  (`basic`, `bearer`, `api_key_header`, `api_key_query`) es pasar el
-  `apex_credential_static_id` directo a
-  `apex_web_service.make_rest_request`'s `p_credential_static_id` — APEX
-  adjunta el header/query real desde el Web Credential store sin que
-  nuestro PL/SQL toque el secreto en ningún momento. Esto es distinto al
-  diseño original de `get_auth_headers`, que asumía que este paquete
-  armaría el header manualmente (lo que hubiera requerido extraer el
-  secreto a una variable PL/SQL, contradiciendo el propio comentario de
-  `arw_credentials`: "el secreto vive en apex_credential, nunca se
-  almacena acá").
+  > **Propuesta de resolución** (2026-09-22, pendiente de confirmación del
+  > usuario — no se marca como cerrada todavía): `arw_target_profiles.target_schema`
+  > ya modela esto — su propio comentario de columna dice "null when the
+  > generator assumes the current schema". Propuesta: por defecto (perfil
+  > sin `target_schema`) el generador emite objetos **sin calificar**
+  > (matching el espíritu de los targets "pegar" — el dev corre el
+  > snippet en su propia sesión/esquema, calificarlo de más solo agrega
+  > ruido); cuando el perfil sí trae `target_schema`, el generador
+  > antepone `<target_schema>.` a cada referencia a tabla/paquete/vista
+  > generada. Esto no requiere cambiar el modelo de datos — ya está
+  > soportado por la columna existente.
 
-  Cambios: `arw_auth_utils.get_auth_headers` (y los tipos `t_header_rec`/
-  `t_header_tab`, sin otro uso) fueron reemplazados por
-  `resolve_credential_static_id(p_credential_id) return
-  apex_credential_static_id%type` — null cuando no hay auth, el
-  `static_id` para los 4 tipos simples, y sigue lanzando
-  `gc_err_auth_type_not_implemented` para el resto (`oauth2_*`, `oci`,
-  `mtls`, `sigv4`, `jwt_signed` — Fase 5). `arw_exec_api.apply_request_headers`
-  ya no arma headers de auth; solo dejó una línea de auditoría redactada en
-  el resumen. `execute_endpoint` resuelve el `static_id` y lo pasa tanto a
-  `apply_request_headers` (para el log) como directo a `make_rest_request`.
-
-  Verificado con una credencial real de tipo `bearer` (`HTTP_HEADER` en
-  `apex_credential`, creada con `apex_credential.create_credential` +
-  `set_persistent_credentials`, requiere sesión APEX real —
-  `apex_util.set_security_group_id` — igual que en 0.6): una llamada cruda
-  contra `https://httpbin.org/bearer` con `p_credential_static_id` devolvió
-  `{"authenticated": true, "token": "arw-test-token-123"}`, confirmando que
-  APEX adjuntó el header real. También se probó el camino de rechazo: la
-  misma credencial contra un host fuera de su `p_allowed_urls` devolvió
-  `ORA-20987: Credential is not allowed to be used for this URL endpoint`,
-  y `execute_endpoint` lo capturó correctamente como
-  `request_status_code = 'error'` (sin excepción sin manejar, `execution_id`
-  igual devuelto). Toda la credencial y el endpoint de prueba se
-  limpiaron después (`apex_credential.drop_credential` + filas
-  desactivadas).
+- Ampliar `arw_auth_utils` a basic/bearer/apikey antes de la Fase 1 (ver
+  sección 5, Fase 1).
 
 ---
 
