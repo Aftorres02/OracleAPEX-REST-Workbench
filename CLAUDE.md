@@ -1,25 +1,17 @@
 # ARW (APEX REST Workbench) — Oracle APEX / PL/SQL Code Standards
 
-This file is an **index only**. It does not contain standards content itself —
-it imports the rule files that Claude Code should always load into context.
-Detailed standards live under `.claude/rules/` — this package's `rules/`
-folder, consumed as your project's `.claude/` directory via git submodule.
+This file is an **index only**. It does not contain standards content itself.
+Detailed standards live under `.claude/rules/` — the shared standards
+package, consumed as this project's `.claude/` directory via git submodule.
 
 See `.claude/STRUCTURE.md` for a full explanation of how this configuration
 directory is organized (rules vs. agents vs. commands vs. skills vs. hooks).
 
 ## Rules (always loaded)
 
-@.claude/rules/sql-format.md
-@.claude/rules/plsql-standards.md
-@.claude/rules/ddl-conventions.md
-@.claude/rules/apex-ux.md
-@.claude/rules/security.md
-@.claude/rules/javascript-standards.md
-@.claude/rules/git-workflow.md
-@.claude/rules/repo-structure.md
-@.claude/rules/documentation-formatting.md
-@.claude/rules/error-handling.md
+Claude Code loads every `.claude/rules/*.md` file automatically at session
+start. They are deliberately **not** `@`-imported here — importing them
+again would load the same content into context twice.
 
 ## Other configuration
 
