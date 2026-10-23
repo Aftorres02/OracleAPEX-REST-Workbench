@@ -1,0 +1,212 @@
+page 1 (
+    name: Home
+    alias: HOME
+    title: Home
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+
+    // layout_row_plan: [{ slot: body, row: kpi-strip, recipe: metric-card-strip, regions: [dashboard-kpis] }, { slot: body, row: object-type-chart, recipe: single-full-width, regions: [objects-by-type] }]
+
+    region breadcrumb-bar (
+        name: Home
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: REGION_POSITION_01
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region dashboard-kpis (
+        name: Key Metrics
+        type: themeTemplateComponent/metricCard
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 as id,
+                       'Total Objects' as title,
+                       to_char(count(*)) as metric,
+                       'Excludes synonyms' as meta
+                  from all_objects
+                 where object_type != 'SYNONYM'
+                union all
+                select 2 as id,
+                       'Distinct Owners' as title,
+                       to_char(count(distinct owner)) as metric,
+                       'Excludes synonyms' as meta
+                  from all_objects
+                 where object_type != 'SYNONYM'
+                union all
+                select 3 as id,
+                       'Distinct Object Types' as title,
+                       to_char(count(distinct object_type)) as metric,
+                       'Excludes synonyms' as meta
+                  from all_objects
+                 where object_type != 'SYNONYM'
+                union all
+                select 4 as id,
+                       'Changed Last 7 Days' as title,
+                       to_char(count(*)) as metric,
+                       'Last DDL time, excludes synonyms' as meta
+                  from all_objects
+                 where object_type != 'SYNONYM'
+                   and last_ddl_time >= sysdate - 7
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            metric: &METRIC.
+            meta: &META.
+            layout: 4Columns
+        }
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+        column METRIC (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: METRIC
+                dataType: varchar2
+            }
+        )
+
+        column META (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: META
+                dataType: varchar2
+            }
+        )
+    )
+
+    region objects-by-type (
+        name: Objects By Type
+        type: chart
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noBorder
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: bar
+        }
+        chartAppearance {
+            orientation: horizontal
+        }
+        title {
+            title: Object Counts By Type -- Top 10, Excludes Synonyms
+        }
+        legend {
+            show: false
+        }
+
+        series objects-by-type (
+            name: Objects By Type
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select object_type as label,
+                           count(*) as value
+                      from all_objects
+                     where object_type != 'SYNONYM'
+                     group by object_type
+                     order by count(*) desc
+                     fetch first 10 rows only
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+        )
+
+        axis x (
+            name: x
+            value {
+            }
+            majorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: decimal
+                decimalPlaces: 0
+                formatScaling: none
+            }
+            majorTicks {
+                show: true
+            }
+        )
+    )
+
+)

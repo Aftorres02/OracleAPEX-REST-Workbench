@@ -1,0 +1,50 @@
+breadcrumb breadcrumb (
+    name: Breadcrumb
+
+    entry home (
+        name: Home
+        pageNumber: 1
+        execution {
+            sequence: 10
+        }
+        link {
+            target: {
+                page: 1
+            }
+        }
+    )
+
+    entry objects (
+        name: Objects
+        pageNumber: 100
+        appearance {
+            parentEntry: @home
+        }
+        execution {
+            sequence: 20
+        }
+        link {
+            target: {
+                page: 100
+            }
+        }
+    )
+
+    entry tables (
+        name: Tables
+        pageNumber: 200
+        appearance {
+            parentEntry: @home
+        }
+        execution {
+            sequence: 30
+        }
+        link {
+            target: {
+                page: 200
+            }
+        }
+    )
+
+)
+
