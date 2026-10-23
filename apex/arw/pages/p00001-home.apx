@@ -1,0 +1,116 @@
+page 1 (
+    name: Home
+    alias: HOME
+    title: Home
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+
+    region app-name (
+        name: Home
+        title: &APP_TITLE.
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region recent-collections (
+        name: Recent Collections
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.collection_id             as collection_id
+                     , c.name                      as name
+                     , c.description                as description
+                     , c.created_on                as created_on
+                  from arw_collections c
+                 where c.active_yn = 'Y'
+                 order by c.created_on desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--horizontalBorders
+            ]
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No collections yet -- create one from the Collections page.
+        }
+
+        column COLLECTION_ID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column CREATED_ON (
+            type: plainText
+            heading {
+                heading: Created On
+            }
+            layout {
+                sequence: 40
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI
+            }
+        )
+
+    )
+
+)

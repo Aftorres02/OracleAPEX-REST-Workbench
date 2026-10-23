@@ -1,0 +1,140 @@
+page 100 (
+    name: Collections
+    alias: COLLECTIONS
+    title: Collections
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Lists every active collection -- the top-level grouping for environments and endpoints, same idea as a Postman collection.
+    }
+
+    region collectionsIR (
+        name: Collections
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.collection_id                                     as collection_id
+                     , c.name                                              as name
+                     , c.description                                       as description
+                     , p.name                                              as parent_name
+                     , c.created_by                                        as created_by
+                     , c.created_on                                        as created_on
+                  from arw_collections                     c
+                  left join arw_collections                  p on p.collection_id = c.parent_collection_id
+                 where c.active_yn = 'Y'
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No collections found.
+        }
+
+        column COLLECTION_ID (
+            type: hidden
+            heading {
+                heading: Collection Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column PARENT_NAME (
+            type: plainText
+            heading {
+                heading: Parent Collection
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column CREATED_ON (
+            type: plainText
+            heading {
+                heading: Created On
+            }
+            layout {
+                sequence: 60
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+    )
+
+)
