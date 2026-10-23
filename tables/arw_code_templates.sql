@@ -43,11 +43,11 @@ create table arw_code_templates (
   , last_updated_on               timestamp with local time zone
   , constraint ck_arw_code_templates_active_yn check (active_yn in ('Y', 'N'))
   , constraint ck_arw_code_templates_type check (template_type_code in (
-      'plsql_block', 'plsql_package', 'json_table'
-    , 'apexlang_rds', 'apexlang_install_script', 'apexlang_ai_tool', 'curl'
+      'plsql_block', 'plsql_package', 'json_table', 'table_ddl', 'curl'
+    , 'apexlang_rds', 'apexlang_install_script', 'apexlang_ai_tool', 'apexlang_automation'
     ))
   , constraint ck_arw_code_templates_section check (section_code in (
-      'declaration', 'headers', 'auth', 'invocation', 'status', 'parsing', 'example'
+      'spec', 'declaration', 'headers', 'auth', 'invocation', 'status', 'parsing', 'example', 'footer'
     ))
   , constraint uk_code_templates_section unique (template_type_code, variant_code, section_code, sequence_num)
 );
@@ -65,9 +65,9 @@ create index idx_arw_code_templates_active on arw_code_templates (active_yn);
 begin
   execute immediate 'comment on table arw_code_templates is ''Versioned generator fragments, by section and variant (hybrid engine).''';
   execute immediate 'comment on column arw_code_templates.code_template_id is ''Unique identifier of the fragment.''';
-  execute immediate 'comment on column arw_code_templates.template_type_code is ''Output type: plsql_block, plsql_package, json_table, apexlang_rds, apexlang_install_script, apexlang_ai_tool or curl.''';
+  execute immediate 'comment on column arw_code_templates.template_type_code is ''Output type: plsql_block, plsql_package, json_table, table_ddl, curl, apexlang_rds, apexlang_install_script, apexlang_ai_tool or apexlang_automation.''';
   execute immediate 'comment on column arw_code_templates.variant_code is ''Value of the axis that applies (e.g. basic, bearer, job); open catalog, grows by inserting rows.''';
-  execute immediate 'comment on column arw_code_templates.section_code is ''Assembly pipeline section: declaration, headers, auth, invocation, status, parsing or example.''';
+  execute immediate 'comment on column arw_code_templates.section_code is ''Assembly pipeline section, in order: spec, declaration, headers, auth, invocation, status, parsing, example, footer.''';
   execute immediate 'comment on column arw_code_templates.sequence_num is ''Assembly order within the same type/variant/section.''';
   execute immediate 'comment on column arw_code_templates.template_body is ''Body of the fragment, with tokens substituted by arw_render_utils.''';
   execute immediate 'comment on column arw_code_templates.active_yn is ''Soft-delete flag: Y = active, N = inactive.''';
