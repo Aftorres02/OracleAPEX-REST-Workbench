@@ -1,0 +1,8 @@
+appItem ARW_ENV_NAME (
+    security {
+        sessionStateProtection: checksumRequiredSessionLevel
+    }
+    comments {
+        comments: Active environment name (e.g. dev, test, prod). Executions resolve the environment with arw_environments_api.resolve_environment_id(collection_id, :ARW_ENV_NAME). Set on new session to dev; changed from page 310 (Set active).
+    }
+)

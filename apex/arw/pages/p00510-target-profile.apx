@@ -1,0 +1,559 @@
+page 510 (
+    name: Target profile
+    alias: TARGET-PROFILE
+    title: Target profile
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Create or edit a target profile used by the code generator. Deleting a profile only deactivates it.
+    }
+
+    region targetProfileForm (
+        name: Target profile
+        type: form
+        source {
+            location: localDatabase
+            tableName: ARW_TARGET_PROFILES
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+        }
+    )
+
+    region buttonsSR (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P510_TARGET_PROFILE_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @targetProfileForm
+            slot: regionBody
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: TARGET_PROFILE_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P510_NAME (
+        type: textField
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 200
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P510_OBJECT_PREFIX (
+        type: textField
+        label {
+            label: Object Prefix
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+            valuePlaceholder: acme_
+        }
+        validation {
+            valueRequired: true
+            maxLength: 30
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: OBJECT_PREFIX
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: Prefix of every generated object (package, table, view)
+        }
+    )
+
+    pageItem P510_TARGET_SCHEMA (
+        type: textField
+        label {
+            label: Target Schema
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 128
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: TARGET_SCHEMA
+            dataType: varchar2
+        }
+    )
+
+    pageItem P510_TRACE_MODE_CODE (
+        type: selectList
+        label {
+            label: Tracing
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:None;none,APEX debug;apex_debug,Logger;logger
+            displayNullValue: false
+        }
+        layout {
+            sequence: 50
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: TRACE_MODE_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: apex_debug
+        }
+    )
+
+    pageItem P510_INSTANCE_TYPE_CODE (
+        type: selectList
+        label {
+            label: Instance Type
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:APEX;apex,Autonomous Database;autonomous
+            displayNullValue: false
+        }
+        layout {
+            sequence: 60
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: INSTANCE_TYPE_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: apex
+        }
+    )
+
+    pageItem P510_AUDIT_ENABLED_YN (
+        type: switch
+        label {
+            label: Audit Columns
+            alignment: left
+        }
+        layout {
+            sequence: 70
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: AUDIT_ENABLED_YN
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: Y
+        }
+        help {
+            inlineHelpText: Generated tables get created_by/on and last_updated_by/on columns
+        }
+    )
+
+    pageItem P510_DB_VERSION (
+        type: textField
+        label {
+            label: DB Version
+            alignment: left
+        }
+        layout {
+            sequence: 80
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 20
+            valuePlaceholder: 23ai
+        }
+        validation {
+            maxLength: 30
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: DB_VERSION
+            dataType: varchar2
+        }
+    )
+
+    pageItem P510_APEX_VERSION (
+        type: textField
+        label {
+            label: APEX Version
+            alignment: left
+        }
+        layout {
+            sequence: 90
+            region: @targetProfileForm
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 20
+            valuePlaceholder: 26.1
+        }
+        validation {
+            maxLength: 30
+        }
+        source {
+            formRegion: @targetProfileForm
+            column: APEX_VERSION
+            dataType: varchar2
+        }
+    )
+
+    button CANCEL (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttonsSR
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button DELETE (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttonsSR
+            slot: DELETE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P510_TARGET_PROFILE_ID
+        }
+    )
+
+    button SAVE (
+        buttonName: SAVE
+        label: Save
+        layout {
+            sequence: 30
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P510_TARGET_PROFILE_ID
+        }
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 40
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P510_TARGET_PROFILE_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @CANCEL
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process initialize-target-profile-form (
+        name: Initialize Target Profile Form
+        type: formInitialization
+        formRegion: @targetProfileForm
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+    process create-target-profile (
+        name: Create Target Profile
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                :P510_TARGET_PROFILE_ID := arw_target_profiles_api.create_profile(
+                                               p_name                 => :P510_NAME
+                                             , p_object_prefix        => :P510_OBJECT_PREFIX
+                                             , p_target_schema        => :P510_TARGET_SCHEMA
+                                             , p_trace_mode_code      => :P510_TRACE_MODE_CODE
+                                             , p_audit_enabled_yn     => nvl(:P510_AUDIT_ENABLED_YN, 'N')
+                                             , p_instance_type_code   => :P510_INSTANCE_TYPE_CODE
+                                             , p_db_version           => :P510_DB_VERSION
+                                             , p_apex_version         => :P510_APEX_VERSION
+                                           );
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Target profile created.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'CREATE'
+                ```
+        }
+    )
+
+    process save-target-profile (
+        name: Save Target Profile
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_target_profiles_api.update_profile(
+                    p_target_profile_id    => :P510_TARGET_PROFILE_ID
+                  , p_name                 => :P510_NAME
+                  , p_object_prefix        => :P510_OBJECT_PREFIX
+                  , p_target_schema        => :P510_TARGET_SCHEMA
+                  , p_trace_mode_code      => :P510_TRACE_MODE_CODE
+                  , p_audit_enabled_yn     => nvl(:P510_AUDIT_ENABLED_YN, 'N')
+                  , p_instance_type_code   => :P510_INSTANCE_TYPE_CODE
+                  , p_db_version           => :P510_DB_VERSION
+                  , p_apex_version         => :P510_APEX_VERSION
+                );
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Target profile saved.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SAVE'
+                ```
+        }
+    )
+
+    process delete-target-profile (
+        name: Delete Target Profile
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_target_profiles_api.deactivate_profile(
+                    p_target_profile_id    => :P510_TARGET_PROFILE_ID
+                );
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Target profile deleted.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('CREATE', 'SAVE', 'DELETE')
+                ```
+        }
+    )
+
+)

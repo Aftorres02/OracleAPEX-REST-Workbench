@@ -1,0 +1,341 @@
+page 400 (
+    name: History
+    alias: HISTORY
+    title: History
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Every endpoint execution, newest first. Open a row to see the request that was sent (sensitive headers already redacted) and the response that came back.
+    }
+
+    region historyHeadSR (
+        name: History Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <div>
+                    <h1 class="arw-page-title">History</h1>
+                    <p class="arw-page-subtitle">executed from the database</p>
+                  </div>
+                  <span class="arw-chip arw-chip--info">Active environment: &ARW_ENV_NAME.</span>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 5
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region historyIR (
+        name: Executions
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select l.execution_id                                      as execution_id
+                     , l.executed_on                                       as executed_on
+                     , l.collection_name                                   as collection_name
+                     , l.endpoint_name                                     as endpoint_name
+                     , l.http_method                                       as http_method
+                     , l.display_path                                      as display_path
+                     , l.environment_name                                  as environment_name
+                     , l.status_label                                      as status_label
+                     , l.status_class                                      as status_class
+                     , l.status_text                                       as status_text
+                     , l.request_status_code                               as request_status_code
+                     , l.elapsed_ms                                        as elapsed_ms
+                     , l.error_code                                        as error_code
+                     , l.response_size_bytes                               as response_size_bytes
+                     , l.executed_by                                       as executed_by
+                  from arw_execution_log_vw l
+                 order by l.executed_on desc
+                     , l.execution_id desc
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 410
+                items: {
+                    P410_EXECUTION_ID: #EXECUTION_ID#
+                }
+                clearCache: 410
+            }
+            linkIcon: <span role="img" aria-label="View" class="fa fa-search" title="View execution detail"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No executions yet. Open an endpoint and press Send.
+        }
+
+        column EXECUTION_ID (
+            type: hidden
+            heading {
+                heading: Execution Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column EXECUTED_ON (
+            type: plainText
+            heading {
+                heading: Executed
+            }
+            layout {
+                sequence: 20
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI:SS
+            }
+            source {
+                dataType: TIMESTAMP_LTZ
+            }
+        )
+
+        column COLLECTION_NAME (
+            type: plainText
+            heading {
+                heading: Collection
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column ENDPOINT_NAME (
+            type: plainText
+            heading {
+                heading: Endpoint
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column HTTP_METHOD (
+            type: plainText
+            heading {
+                heading: Method
+            }
+            layout {
+                sequence: 50
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-method">#HTTP_METHOD#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column DISPLAY_PATH (
+            type: plainText
+            heading {
+                heading: Path
+            }
+            layout {
+                sequence: 60
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-path">#DISPLAY_PATH#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column ENVIRONMENT_NAME (
+            type: plainText
+            heading {
+                heading: Environment
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column STATUS_LABEL (
+            type: plainText
+            heading {
+                heading: Status
+                alignment: center
+            }
+            layout {
+                sequence: 80
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-chip arw-chip--status arw-chip--#STATUS_CLASS#" title="#STATUS_TEXT#">#STATUS_LABEL#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column STATUS_CLASS (
+            type: hidden
+            heading {
+                heading: Status Class
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column STATUS_TEXT (
+            type: hidden
+            heading {
+                heading: Status Text
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column REQUEST_STATUS_CODE (
+            type: plainText
+            heading {
+                heading: Outcome
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column ELAPSED_MS (
+            type: plainText
+            heading {
+                heading: Elapsed (ms)
+                alignment: end
+            }
+            layout {
+                sequence: 120
+                columnAlignment: end
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-elapsed">#ELAPSED_MS#</span>
+                    ```
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column ERROR_CODE (
+            type: plainText
+            heading {
+                heading: Error
+            }
+            layout {
+                sequence: 130
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-elapsed--error">#ERROR_CODE#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column RESPONSE_SIZE_BYTES (
+            type: plainText
+            heading {
+                heading: Size (bytes)
+                alignment: end
+            }
+            layout {
+                sequence: 140
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G990
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column EXECUTED_BY (
+            type: plainText
+            heading {
+                heading: Executed By
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+    )
+
+)

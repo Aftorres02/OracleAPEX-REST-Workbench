@@ -1,0 +1,434 @@
+page 410 (
+    name: Execution
+    alias: EXECUTION
+    title: Execution detail
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        width: 1000
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: The request as it was sent (sensitive headers are redacted when the call is logged) and the response that came back. JSON bodies are pretty-printed; bodies longer than 20,000 characters are cut.
+    }
+
+    region requestCR (
+        name: Request
+        title: Request
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select l.execution_id                                      as execution_id
+                     , l.http_method                                       as http_method
+                     , en.base_url || l.display_path                       as request_url
+                     , l.collection_name                                   as collection_name
+                     , l.endpoint_name                                     as endpoint_name
+                     , l.environment_name                                  as environment_name
+                     , to_char(l.executed_on, 'DD-MON-YYYY HH24:MI:SS')    as executed_on
+                     , l.executed_by                                       as executed_by
+                     , dbms_lob.substr(e.request_headers, 8000, 1)         as request_headers
+                     , dbms_lob.substr(e.request_body, 20000, 1)           as request_body
+                  from arw_execution_log_vw                l
+                  join arw_executions                      e on e.execution_id = l.execution_id
+                  join arw_environments                   en on en.environment_id = l.environment_id
+                 where l.execution_id = :P410_EXECUTION_ID
+                ```
+            pageItemsToSubmit: [
+                P410_EXECUTION_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-detail
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: Execution not found.
+        }
+
+        column EXECUTION_ID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column HTTP_METHOD (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column REQUEST_URL (
+            type: plainText
+            heading {
+                heading: Request
+                alignment: start
+            }
+            layout {
+                sequence: 30
+                columnAlignment: start
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <div class="arw-chips">
+                      <span class="arw-chip arw-chip--method">#HTTP_METHOD#</span>
+                      <span class="arw-chip">#COLLECTION_NAME# › #ENDPOINT_NAME#</span>
+                      <span class="arw-chip arw-chip--mono">env: #ENVIRONMENT_NAME#</span>
+                      <span class="arw-chip">#EXECUTED_ON#</span>
+                      <span class="arw-chip">#EXECUTED_BY#</span>
+                    </div>
+                    <div class="arw-urlbar">#REQUEST_URL#</div>
+                    {if REQUEST_HEADERS/}<span class="arw-section-label">Request headers</span><pre class="arw-code arw-code--wrap">#REQUEST_HEADERS#</pre>{endif/}
+                    {if REQUEST_BODY/}<span class="arw-section-label">Request body</span><pre class="arw-code">#REQUEST_BODY#</pre>{endif/}
+                    ```
+            }
+            advanced {
+                computeSum: false
+            }
+        )
+
+        column COLLECTION_NAME (
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column ENDPOINT_NAME (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column ENVIRONMENT_NAME (
+            type: hidden
+            layout {
+                sequence: 60
+            }
+        )
+
+        column EXECUTED_ON (
+            type: hidden
+            layout {
+                sequence: 70
+            }
+        )
+
+        column EXECUTED_BY (
+            type: hidden
+            layout {
+                sequence: 80
+            }
+        )
+
+        column REQUEST_HEADERS (
+            type: hidden
+            layout {
+                sequence: 90
+            }
+        )
+
+        column REQUEST_BODY (
+            type: hidden
+            layout {
+                sequence: 100
+            }
+        )
+
+    )
+
+    region responseCR (
+        name: Response
+        title: Response
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_exec as (
+                  select e.execution_id                                      as execution_id
+                       , case
+                           when e.response_body_clob is json
+                             then json_serialize(e.response_body_clob returning clob pretty)
+                           else e.response_body_clob
+                         end                                                 as response_body
+                       , e.response_headers                                  as response_headers
+                    from arw_executions e
+                   where e.execution_id = :P410_EXECUTION_ID
+                )
+                select l.execution_id                                      as execution_id
+                     , l.request_status_code                               as request_status_code
+                     , trim(l.status_label || ' ' || l.status_text)        as status_label
+                     , l.status_class                                      as status_class
+                     , case
+                         when l.elapsed_ms is not null then l.elapsed_ms || ' ms'
+                       end                                                 as elapsed_label
+                     , case
+                         when l.response_size_bytes is null then null
+                         when l.response_size_bytes >= 1048576
+                           then to_char(round(l.response_size_bytes / 1048576, 1), 'FM999990.0') || ' MB'
+                         when l.response_size_bytes >= 1024
+                           then to_char(round(l.response_size_bytes / 1024, 1), 'FM999990.0') || ' KB'
+                         else l.response_size_bytes || ' B'
+                       end                                                 as size_label
+                     , l.content_type                                      as content_type
+                     , l.error_code                                        as error_code
+                     , dbms_lob.substr(w.response_body, 20000, 1)          as response_body
+                     , case
+                         when dbms_lob.getlength(w.response_body) > 20000 then 'Y'
+                         else 'N'
+                       end                                                 as body_truncated_yn
+                     , dbms_lob.substr(w.response_headers, 8000, 1)        as response_headers
+                  from arw_execution_log_vw                l
+                  join w_exec                              w on w.execution_id = l.execution_id
+                ```
+            pageItemsToSubmit: [
+                P410_EXECUTION_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-detail
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: Execution not found.
+        }
+
+        column EXECUTION_ID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column REQUEST_STATUS_CODE (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column STATUS_LABEL (
+            type: plainText
+            heading {
+                heading: Response
+                alignment: start
+            }
+            layout {
+                sequence: 30
+                columnAlignment: start
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <div class="arw-chips">
+                      <span class="arw-chip arw-chip--#STATUS_CLASS#">#STATUS_LABEL#</span>
+                      {if ELAPSED_LABEL/}<span class="arw-chip">#ELAPSED_LABEL#</span>{endif/}
+                      {if SIZE_LABEL/}<span class="arw-chip">#SIZE_LABEL#</span>{endif/}
+                      {if CONTENT_TYPE/}<span class="arw-chip">#CONTENT_TYPE#</span>{endif/}
+                      <span class="arw-chip arw-chip--info">Executed from the database</span>
+                    </div>
+                    {case REQUEST_STATUS_CODE/}
+                    {when success/}
+                    <pre class="arw-code">#RESPONSE_BODY#</pre>
+                    {otherwise/}
+                    <div class="arw-banner arw-banner--error">The call failed ({if ERROR_CODE/}#ERROR_CODE#{endif/}{if !ERROR_CODE/}#REQUEST_STATUS_CODE#{endif/}). Error text:</div>
+                    <pre class="arw-code arw-code--wrap">#RESPONSE_BODY#</pre>
+                    {endcase/}
+                    {case BODY_TRUNCATED_YN/}{when Y/}<p class="arw-muted">Body cut at 20,000 characters.</p>{otherwise/}{endcase/}
+                    {if RESPONSE_HEADERS/}<span class="arw-section-label">Response headers</span><pre class="arw-code arw-code--wrap">#RESPONSE_HEADERS#</pre>{endif/}
+                    ```
+            }
+            advanced {
+                computeSum: false
+            }
+        )
+
+        column STATUS_CLASS (
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column ELAPSED_LABEL (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column SIZE_LABEL (
+            type: hidden
+            layout {
+                sequence: 60
+            }
+        )
+
+        column CONTENT_TYPE (
+            type: hidden
+            layout {
+                sequence: 70
+            }
+        )
+
+        column ERROR_CODE (
+            type: hidden
+            layout {
+                sequence: 80
+            }
+        )
+
+        column RESPONSE_BODY (
+            type: hidden
+            layout {
+                sequence: 90
+            }
+        )
+
+        column BODY_TRUNCATED_YN (
+            type: hidden
+            layout {
+                sequence: 100
+            }
+        )
+
+        column RESPONSE_HEADERS (
+            type: hidden
+            layout {
+                sequence: 110
+            }
+        )
+
+    )
+
+    region buttonsSR (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region paramsSR (
+        name: {params}
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P410_EXECUTION_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button CLOSE (
+        buttonName: CLOSE
+        label: Close
+        layout {
+            sequence: 10
+            region: @buttonsSR
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction close-dialog (
+        name: Close Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @CLOSE
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)

@@ -13,36 +13,47 @@ page 1 (
         pageAccessProtection: argumentsMustHaveChecksum
         formAutoComplete: false
     }
+    help {
+        helpText: Collections at a glance and the latest executions. Click a collection card to open its endpoints, or an execution row to see its request and response.
+    }
 
-    region app-name (
-        name: Home
-        title: &APP_TITLE.
+    region homeHeadSR (
+        name: Home Header
         type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <h1 class="arw-page-title">Home</h1>
+                  <span class="arw-chip arw-chip--info">Active environment: &ARW_ENV_NAME.</span>
+                </div>
+                <span class="arw-section-label">Collections</span>
+                ```
+        }
         layout {
             sequence: 10
-            slot: breadcrumbBar
+            slot: BODY
         }
         appearance {
-            template: @/hero
+            template: @/blank-with-attributes
             templateOptions: #DEFAULT#
         }
     )
 
-    region recent-collections (
-        name: Recent Collections
-        type: classicReport
+    region collectionCards (
+        name: Collections
+        type: cards
         source {
             location: localDatabase
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select c.collection_id             as collection_id
-                     , c.name                      as name
-                     , c.description                as description
-                     , c.created_on                as created_on
-                  from arw_collections c
-                 where c.active_yn = 'Y'
-                 order by c.created_on desc
+                select s.collection_id                                     as collection_id
+                     , s.name                                              as name
+                     , s.endpoint_count                                    as endpoint_count
+                     , s.profiled_count                                    as profiled_count
+                  from arw_collection_summary_vw s
+                 order by s.name
                 ```
         }
         layout {
@@ -50,10 +61,90 @@ page 1 (
             slot: BODY
         }
         appearance {
-            template: @/standard
-            templateOptions: [
-                #DEFAULT#
-                t-Region--scrollBody
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-cards
+            ]
+        }
+        card {
+            cssClasses: [
+                arw-card
+            ]
+            primaryKeyColumn1: COLLECTION_ID
+        }
+        title {
+            advancedFormatting: false
+            column: NAME
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                &ENDPOINT_COUNT. endpoints · &PROFILED_COUNT. profiled
+                ```
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        messages {
+            whenNoDataFound: No collections yet. Create one from Collections or import a Postman collection.
+        }
+
+        action open-collection (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 200
+                    items: {
+                        P200_COLLECTION_ID: &COLLECTION_ID.
+                    }
+                    clearCache: 200
+                }
+            }
+        )
+    )
+
+    region recentExecutionsCR (
+        name: Recent Executions
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select l.execution_id                                      as execution_id
+                     , l.http_method                                       as http_method
+                     , l.display_path                                      as display_path
+                     , l.status_label                                      as status_label
+                     , l.status_class                                      as status_class
+                     , l.elapsed_ms                                        as elapsed_ms
+                     , l.error_code                                        as error_code
+                     , case
+                         when l.http_status_code is null
+                          and l.error_code is not null then 'Y'
+                         else 'N'
+                       end                                                 as show_error_yn
+                  from arw_execution_log_vw l
+                 order by l.executed_on desc
+                     , l.execution_id desc
+                 fetch first 8 rows only
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-rows
             ]
         }
         componentAppearance {
@@ -64,53 +155,152 @@ page 1 (
                 t-Report--horizontalBorders
             ]
         }
+        heading {
+            type: none
+        }
         pagination {
             type: rowRangesXToYNoPagination
         }
         messages {
-            whenNoDataFound: No collections yet -- create one from the Collections page.
+            whenNoDataFound: No executions yet. Open an endpoint and press Send.
         }
 
-        column COLLECTION_ID (
+        column EXECUTION_ID (
             type: hidden
             layout {
                 sequence: 10
             }
         )
 
-        column NAME (
+        column HTTP_METHOD (
             type: plainText
             heading {
-                heading: Name
+                heading: Method
+                alignment: start
             }
             layout {
                 sequence: 20
+                columnAlignment: start
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-method">#HTTP_METHOD#</span>
+                    ```
+            }
+            advanced {
+                cellWidth: 90
+                computeSum: false
             }
         )
 
-        column DESCRIPTION (
-            type: plainText
+        column DISPLAY_PATH (
+            type: link
             heading {
-                heading: Description
+                heading: Path
+                alignment: start
             }
             layout {
                 sequence: 30
+                columnAlignment: start
+            }
+            link {
+                target: {
+                    page: 410
+                    items: {
+                        P410_EXECUTION_ID: #EXECUTION_ID#
+                    }
+                    clearCache: 410
+                }
+                linkText: <span class="arw-path">#DISPLAY_PATH#</span>
+                linkAttributes: title="Open execution detail"
             }
         )
 
-        column CREATED_ON (
+        column STATUS_LABEL (
             type: plainText
             heading {
-                heading: Created On
+                heading: Status
+                alignment: end
             }
             layout {
                 sequence: 40
+                columnAlignment: end
             }
-            appearance {
-                formatMask: DD-MON-YYYY HH24:MI
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-chip arw-chip--status arw-chip--#STATUS_CLASS#">#STATUS_LABEL#</span>
+                    ```
+            }
+            advanced {
+                cellWidth: 140
+                computeSum: false
             }
         )
 
+        column STATUS_CLASS (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column ELAPSED_MS (
+            type: plainText
+            heading {
+                heading: Elapsed
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case SHOW_ERROR_YN/}{when Y/}<span class="arw-elapsed--error">#ERROR_CODE#</span>{otherwise/}<span class="arw-elapsed">#ELAPSED_MS# ms</span>{endcase/}
+                    ```
+            }
+            advanced {
+                cellWidth: 140
+                computeSum: false
+            }
+        )
+
+        column ERROR_CODE (
+            type: hidden
+            layout {
+                sequence: 70
+            }
+        )
+
+        column SHOW_ERROR_YN (
+            type: hidden
+            layout {
+                sequence: 80
+            }
+        )
+
+    )
+
+    region recentLabelSR (
+        name: Recent Executions Label
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <span class="arw-section-label">Recent executions</span>
+                ```
+        }
+        layout {
+            sequence: 25
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
     )
 
 )
