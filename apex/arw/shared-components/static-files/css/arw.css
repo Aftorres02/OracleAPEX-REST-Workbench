@@ -655,3 +655,12 @@ html:root {
 .arw-detail .arw-urlbar {
   margin-block-end: .5rem;
 }
+
+.arw-panel--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.arw-panel--flush .arw-check:first-child {
+  border-block-start: 1px solid var(--arw-border);
+}

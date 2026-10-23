@@ -1,0 +1,259 @@
+page 700 (
+    name: Import
+    alias: IMPORT
+    title: Import
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Import a Postman collection (format v2.1) as a new ARW collection with its endpoints, headers, params and bodies. Paste the exported JSON or upload the .json file. After the import you land on the new collection's endpoints.
+    }
+
+    region importHeadSR (
+        name: Import Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <div>
+                    <h1 class="arw-page-title">Import</h1>
+                    <p class="arw-page-subtitle">Postman collection v2.1 &rarr; ARW collection</p>
+                  </div>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 5
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region importSR (
+        name: Postman collection
+        title: Postman collection
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p class="arw-muted">In Postman: Collection &rsaquo; Export &rsaquo; Collection v2.1. Paste the JSON below or upload the file -- an uploaded file wins over pasted text.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P700_COLLECTION_NAME (
+        type: textField
+        label {
+            label: Collection Name
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @importSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+            valuePlaceholder: Defaults to the Postman collection name
+        }
+        validation {
+            maxLength: 200
+        }
+    )
+
+    pageItem P700_FILE (
+        type: fileUpload
+        label {
+            label: Collection File
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @importSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        storage {
+            type: appTempFiles
+            allowMultipleFiles: false
+            fileTypes: .json,application/json
+        }
+    )
+
+    pageItem P700_COLLECTION_JSON (
+        type: textarea
+        label {
+            label: Collection JSON
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @importSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 18
+            valuePlaceholder: {"info": {"name": "...", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"}, "item": [...]}
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        sessionState {
+            dataType: clob
+            storage: request
+        }
+    )
+
+    pageItem P700_NEW_COLLECTION_ID (
+        type: hidden
+        layout {
+            sequence: 40
+            region: @importSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P700_IMPORT_SUMMARY (
+        type: hidden
+        layout {
+            sequence: 50
+            region: @importSR
+            slot: regionBody
+        }
+    )
+
+    button IMPORT (
+        buttonName: IMPORT
+        label: Import
+        layout {
+            sequence: 10
+            region: @importSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    validation json-or-file-required (
+        name: JSON Or File Required
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :P700_FILE is not null or :P700_COLLECTION_JSON is not null
+                ```
+        }
+        error {
+            errorMessage: Paste the collection JSON or upload the exported file.
+            associatedItem: @P700_COLLECTION_JSON
+        }
+        serverSideCondition {
+            whenButtonPressed: @IMPORT
+        }
+    )
+
+    process import-postman (
+        name: Import Postman Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_json                            clob := :P700_COLLECTION_JSON;
+                begin
+                  -- An uploaded file wins over pasted text
+                  if :P700_FILE is not null then
+                    select to_clob(f.blob_content)                         as file_content
+                      into l_json
+                      from apex_application_temp_files f
+                     where f.name = :P700_FILE;
+                  end if;
+
+                  :P700_NEW_COLLECTION_ID := arw_import_api.import_postman(
+                                                 p_collection_json  => l_json
+                                               , p_collection_name  => :P700_COLLECTION_NAME
+                                             );
+                  :P700_IMPORT_SUMMARY := arw_import_api.last_import_summary;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: &P700_IMPORT_SUMMARY.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'IMPORT'
+                ```
+        }
+    )
+
+    branch go-to-endpoints (
+        name: Go To Imported Endpoints
+        execution {
+            sequence: 10
+            point: afterProcessing
+        }
+        behavior {
+            type: pageOrUrl
+            target: {
+                page: 200
+                items: {
+                    P200_COLLECTION_ID: &P700_NEW_COLLECTION_ID.
+                }
+                clearCache: 200
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @IMPORT
+        }
+    )
+
+)
