@@ -7,6 +7,8 @@
 -- @author  Angel Flores (Developer)
 -- @created September 09, 2026
 -- @ticket  N/A (Phase 0 - initial ARW data model)
+-- @ticket  #25 (profile_status_code, sample_count -- see
+--          release/code/discovery_upgrade.sql for existing schemas)
 -- =============================================================================
 -- Note: the audit compound trigger lives in a separate file
 -- (triggers/arw_data_profiles_compound_trg.sql) so release/all_triggers.sql
@@ -22,6 +24,8 @@ create table arw_data_profiles (
   , name                          varchar2(200 char) not null
   , row_selector                  varchar2(500 char)
   , format_code                   varchar2(10 char) default 'json' not null
+  , profile_status_code           varchar2(20 char) default 'proposal' not null
+  , sample_count                  number
   , active_yn                     varchar2(1 char) default 'Y' not null
   , created_by                    varchar2(60 char) default
                                   coalesce(
@@ -35,6 +39,7 @@ create table arw_data_profiles (
   , last_updated_on               timestamp with local time zone
   , constraint ck_arw_data_profiles_active_yn check (active_yn in ('Y', 'N'))
   , constraint ck_arw_data_profiles_format check (format_code in ('json'))
+  , constraint ck_arw_data_profiles_status check (profile_status_code in ('proposal', 'accepted'))
   , constraint fk_data_profiles_response_samples foreign key (response_sample_id) references arw_response_samples (sample_id)
 );
 
@@ -54,8 +59,10 @@ begin
   execute immediate 'comment on column arw_data_profiles.data_profile_id is ''Unique identifier of the profile.''';
   execute immediate 'comment on column arw_data_profiles.response_sample_id is ''Response sample this profile was derived from.''';
   execute immediate 'comment on column arw_data_profiles.name is ''Name of the profile (e.g. suggested table/dataProfile name).''';
-  execute immediate 'comment on column arw_data_profiles.row_selector is ''Path to the array of rows within the response (e.g. items).''';
+  execute immediate 'comment on column arw_data_profiles.row_selector is ''Dotted path to the array of rows (e.g. items); null when the rows are the root value (root array, or a single root object).''';
   execute immediate 'comment on column arw_data_profiles.format_code is ''Format of the observed response; only json for now.''';
+  execute immediate 'comment on column arw_data_profiles.profile_status_code is ''Review status: proposal (derived or edited, not yet reviewed) or accepted.''';
+  execute immediate 'comment on column arw_data_profiles.sample_count is ''Number of response samples consolidated into this profile.''';
   execute immediate 'comment on column arw_data_profiles.active_yn is ''Soft-delete flag: Y = active, N = inactive.''';
 end;
 /
