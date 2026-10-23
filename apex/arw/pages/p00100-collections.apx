@@ -11,8 +11,33 @@ page 100 (
         formAutoComplete: false
     }
     help {
-        helpText: Lists every active collection -- the top-level grouping for environments and endpoints, same idea as a Postman collection.
+        helpText: Lists every active collection -- the top-level grouping for environments and endpoints, same idea as a Postman collection. Click a collection name to open its endpoints; use the edit icon to rename or delete it.
     }
+
+    region collectionsHeadSR (
+        name: Collections Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <div>
+                    <h1 class="arw-page-title">Collections</h1>
+                    <p class="arw-page-subtitle">endpoints grouped like a Postman collection</p>
+                  </div>
+                  <span class="arw-chip arw-chip--info">Active environment: &ARW_ENV_NAME.</span>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 5
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
 
     region collectionsIR (
         name: Collections
@@ -22,15 +47,14 @@ page 100 (
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select c.collection_id                                     as collection_id
-                     , c.name                                              as name
-                     , c.description                                       as description
+                select s.collection_id                                     as collection_id
+                     , s.name                                              as name
+                     , s.description                                       as description
                      , p.name                                              as parent_name
-                     , c.created_by                                        as created_by
-                     , c.created_on                                        as created_on
-                  from arw_collections                     c
-                  left join arw_collections                  p on p.collection_id = c.parent_collection_id
-                 where c.active_yn = 'Y'
+                     , s.endpoint_count                                    as endpoint_count
+                     , s.profiled_count                                    as profiled_count
+                  from arw_collection_summary_vw           s
+                  left join arw_collections                  p on p.collection_id = s.parent_collection_id
                 ```
         }
         layout {
@@ -50,7 +74,7 @@ page 100 (
                 }
                 clearCache: 110
             }
-            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit collection"></span>
         }
         componentAppearance {
             showNullValuesAs: -
@@ -79,12 +103,23 @@ page 100 (
         )
 
         column NAME (
-            type: plainText
+            type: link
             heading {
                 heading: Name
             }
             layout {
                 sequence: 20
+            }
+            link {
+                target: {
+                    page: 200
+                    items: {
+                        P200_COLLECTION_ID: #COLLECTION_ID#
+                    }
+                    clearCache: 200
+                }
+                linkText: #NAME#
+                linkAttributes: title="Open the endpoints of this collection"
             }
             source {
                 dataType: STRING
@@ -117,32 +152,44 @@ page 100 (
             }
         )
 
-        column CREATED_BY (
-            type: plainText
+        column ENDPOINT_COUNT (
+            type: link
             heading {
-                heading: Created By
+                heading: Endpoints
+                alignment: end
             }
             layout {
                 sequence: 50
+                columnAlignment: end
+            }
+            link {
+                target: {
+                    page: 200
+                    items: {
+                        P200_COLLECTION_ID: #COLLECTION_ID#
+                    }
+                    clearCache: 200
+                }
+                linkText: <span class="arw-chip arw-chip--info">#ENDPOINT_COUNT# endpoints</span>
+                linkAttributes: title="Open the endpoints of this collection"
             }
             source {
-                dataType: STRING
+                dataType: NUMBER
             }
         )
 
-        column CREATED_ON (
+        column PROFILED_COUNT (
             type: plainText
             heading {
-                heading: Created On
+                heading: Profiled
+                alignment: end
             }
             layout {
                 sequence: 60
-            }
-            appearance {
-                formatMask: DD-MON-YYYY HH24:MI
+                columnAlignment: end
             }
             source {
-                dataType: DATE
+                dataType: NUMBER
             }
         )
 
@@ -166,6 +213,28 @@ page 100 (
             target: {
                 page: 110
                 clearCache: 110
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button IMPORT (
+        buttonName: IMPORT
+        label: Import Postman
+        layout {
+            sequence: 20
+            region: @collectionsIR
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 700
+                clearCache: 700
             }
             warnOnUnsavedChanges: doNotCheck
         }

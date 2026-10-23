@@ -1,8 +1,11 @@
 app ARW (
     name: ARW - APEX REST Workbench
     logo {
-        type: text
-        text: &APP_TITLE.
+        type: custom
+        customHtml:
+            ```
+            <span class="arw-logo"><span class="arw-logo__title">REST Workbench</span><span class="arw-logo__sub">arw · schema &OWNER.</span></span>
+            ```
     }
     navigation {
         homeUrl: {
@@ -16,8 +19,6 @@ app ARW (
         listTemplate: @/side-navigation-menu
         templateOptions: [
             #DEFAULT#
-            js-defaultCollapsed
-            js-navCollapsed--hidden
             t-TreeNav--styleA
         ]
         list: @navigation-menu
@@ -36,6 +37,14 @@ app ARW (
         date: DS
         timestamp: DS
         timestampTimeZone: DS
+    }
+    css {
+        fileUrls: #APP_FILES#css/arw.css
+    }
+    security {
+        runtimeApiUsage: [
+            modifyWorkspaceRepository
+        ]
     }
     authentication {
         scheme: @oracle-apex-accounts
