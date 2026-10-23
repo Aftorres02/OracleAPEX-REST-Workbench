@@ -207,6 +207,12 @@ es consultable.
 > que tenían los bodies en la base era solo por falta de recompilación desde
 > que se otorgó el grant — no un bloqueador real. Recompilados en limpio
 > 2026-09-22, cero errores.
+>
+> **Actualización (2026-09-22, prerequisito de Fase 1 resuelto):** `get_auth_headers`
+> quedó reemplazada por `resolve_credential_static_id` — ver la nota bajo
+> "Pendientes y decisiones abiertas" (sección 6) para el detalle completo
+> del rediseño y de la verificación en vivo (basic/bearer/`api_key_header`/
+> `api_key_query`, las cuatro cubiertas).
 
 ### 0.5 `arw_exec_api` — ejecución real mínima
 
@@ -341,6 +347,9 @@ cURL).
 Antes de empezar: `arw_auth_utils` debe cubrir ya basic/bearer/apikey, no
 solo `none` — los targets "pegar" con auth real no tienen sentido sobre la
 versión mínima de la Fase 0.
+
+> **Prerequisito resuelto** (2026-09-22) — ver el detalle en la sección 6
+> bajo "Pendientes y decisiones abiertas".
 
 *Salida:* un dev consume un endpoint real de punta a punta.
 
