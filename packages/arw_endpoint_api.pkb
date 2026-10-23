@@ -766,5 +766,76 @@ as
   end remove_body;
 
 
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: display_url
+  -- ===========================================================================
+  /**
+   * Returns the URL shown in the endpoint editor URL bar:
+   * '{{base_url}}' || url_path || '?k=v&k2=v2', the query string built from
+   * the endpoint's active query parameters in param_id order. Values are
+   * shown as stored (not url-encoded) -- this is a display string;
+   * arw_exec_api builds the real, encoded URL at execution time. Reads
+   * arw_endpoint_summary_vw.display_url, the single definition of this
+   * string, so reports and PL/SQL callers always agree.
+   *
+   * @example
+   * set serveroutput on
+   * declare
+   *   l_display_url varchar2(4000 char);
+   * begin
+   *   l_display_url := arw_endpoint_api.display_url(
+   *       p_endpoint_id                        => 1
+   *   );
+   *   dbms_output.put_line('display_url = ' || l_display_url);
+   * end;
+   * /
+   *
+   * @issue   #25 (Phase 1 - full ARW application)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 23, 2026
+   *
+   * @param p_endpoint_id Endpoint whose display URL is built
+   * @return varchar2  Display URL; null when the endpoint does not exist or is inactive
+   */
+  function display_url(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+  )
+  return varchar2
+  is
+    l_scope       logger_logs.scope%type := gc_scope_prefix || 'display_url';
+    l_params      logger.tab_param;
+    l_display_url varchar2(4000 char);
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.log('START', l_scope, null, l_params);
+
+    begin
+      select s.display_url                                as display_url
+        into l_display_url
+        from arw_endpoint_summary_vw s
+       where s.endpoint_id = p_endpoint_id;
+    exception
+      when no_data_found then
+        l_display_url := null;
+    end;
+
+    logger.append_param(l_params, 'l_display_url', l_display_url);
+    logger.log('END', l_scope, null, l_params);
+
+    return l_display_url;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end display_url;
+
+
 end arw_endpoint_api;
 /
