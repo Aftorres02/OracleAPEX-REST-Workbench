@@ -456,7 +456,9 @@ as
    * plain failed call; execute_endpoint only raises for configuration
    * problems (endpoint/environment not found, environment from a different
    * collection, an unimplemented engine/param kind, or a failing
-   * preflight).
+   * preflight). A call refused by the preflight is still recorded (status
+   * error, no HTTP status, the ORA-20923 text in response_body_clob) before
+   * ORA-20923 is raised, so the History shows the blocked attempt.
    *
    * @example
    * set serveroutput on
@@ -472,6 +474,7 @@ as
    * /
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   #25 (Phase 1 - record preflight-refused attempts, full error stack)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
@@ -500,8 +503,9 @@ as
     l_environment_collection_id arw_environments.collection_id%type;
     l_base_url                  arw_environments.base_url%type;
 
-    l_host             varchar2(1000 char);
-    l_preflight_checks arw_preflight_api.t_check_tab;
+    l_host              varchar2(1000 char);
+    l_preflight_checks  arw_preflight_api.t_check_tab;
+    l_preflight_message varchar2(32767 char);
 
     l_url             varchar2(2000 char);
     l_body            clob;
@@ -584,11 +588,30 @@ as
     -- ===========================================================================
 
     if arw_preflight_api.has_failures(p_checks => l_preflight_checks) = 'Y' then
-      raise_application_error(
-          gc_err_preflight_failed
-        , 'Preflight failed for host ' || l_host || ':' || chr(10)
-          || arw_preflight_api.format_failures(p_checks => l_preflight_checks)
+      l_preflight_message := 'Preflight failed for host ' || l_host || ':' || chr(10)
+                             || arw_preflight_api.format_failures(p_checks => l_preflight_checks);
+
+
+      -- =========================================================================
+      -- Record the refused attempt (no HTTP status, the root ORA- code in the
+      -- body) so History and Home show it, then refuse as before.
+      -- =========================================================================
+
+      l_execution_id := log_execution(
+          p_endpoint_id                         => p_endpoint_id
+        , p_environment_id                      => p_environment_id
+        , p_request_status_code                 => 'error'
+        , p_http_status_code                    => null
+        , p_elapsed_ms                          => null
+        , p_request_headers                     => null
+        , p_request_body                        => null
+        , p_response_headers                    => null
+        , p_response_body_clob                  => 'ORA' || gc_err_preflight_failed || ': ' || l_preflight_message
       );
+      -- =========================================================================
+
+      logger.append_param(l_params, 'l_execution_id', l_execution_id);
+      raise_application_error(gc_err_preflight_failed, l_preflight_message);
     end if;
 
     get_body(
@@ -640,12 +663,15 @@ as
       when others then
         l_end_cs               := dbms_utility.get_time;
         l_http_status_code     := null;
-        l_response_body        := sqlerrm;
+        -- The full error stack, not just sqlerrm: the root cause (e.g.
+        -- ORA-24247, ORA-29024) sits below the ORA-29273 wrapper, and
+        -- arw_execution_log_vw.error_code extracts it from this text.
+        l_response_body        := dbms_utility.format_error_stack;
         -- ORA-29273 is the generic HTTP-failure wrapper (DNS, refused,
         -- SSL, timeout, ...), not timeout-specific -- only the message
         -- text itself reliably says "timeout".
         l_request_status_code  := case
-                                     when lower(sqlerrm) like '%timeout%' then 'timeout'
+                                     when lower(l_response_body) like '%timeout%' then 'timeout'
                                      else 'error'
                                    end;
     end;

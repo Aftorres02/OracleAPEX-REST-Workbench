@@ -16,9 +16,12 @@
 --     error = 4xx/5xx or a call that never got an HTTP response, info =
 --     anything else); status_label is the HTTP status, or an em dash when
 --     the call never got one.
---   * error_code skips the generic wrappers ORA-29273 (HTTP request failed)
---     and ORA-06512 (at line) so the root cause (e.g. ORA-24247) surfaces;
---     it falls back to the first ORA- code when only wrappers are present.
+--   * error_code skips the generic wrappers ORA-29273 (HTTP request failed),
+--     ORA-06512 (at line) and ORA-20923 (call refused by the preflight,
+--     recorded by arw_exec_api) so the root cause (e.g. ORA-24247)
+--     surfaces; it falls back to the first ORA- code when only wrappers
+--     are present. status_text says "Blocked by preflight" for a refused
+--     call.
 --   * response_size_bytes is null for failed calls: response_body_clob then
 --     holds the error text, not a response. For text bodies it is the
 --     character length (equal to bytes for ASCII/JSON payloads).
@@ -90,6 +93,8 @@ select b.execution_id                                                  as execut
        end                                                             as status_class
      , case
          when b.request_status_code = 'timeout'         then 'Timeout'
+         when b.request_status_code = 'error'
+          and b.error_text like 'ORA-20923:%'           then 'Blocked by preflight'
          when b.request_status_code = 'error'           then 'Error'
          else
            case b.http_status_code
@@ -129,7 +134,7 @@ select b.execution_id                                                  as execut
      , case
          when b.request_status_code != 'success' then
            coalesce(
-               regexp_substr(regexp_replace(b.error_text, 'ORA-(29273|06512)', 'ORA_'), 'ORA-[0-9]{5}')
+               regexp_substr(regexp_replace(b.error_text, 'ORA-(29273|06512|20923)', 'ORA_'), 'ORA-[0-9]{5}')
              , regexp_substr(b.error_text, 'ORA-[0-9]{5}')
            )
        end                                                             as error_code
