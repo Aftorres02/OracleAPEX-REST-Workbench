@@ -41,6 +41,17 @@ page 100 (
             template: @/interactive-report
             templateOptions: #DEFAULT#
         }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 110
+                items: {
+                    P110_COLLECTION_ID: #COLLECTION_ID#
+                }
+                clearCache: 110
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+        }
         componentAppearance {
             showNullValuesAs: -
         }
@@ -132,6 +143,54 @@ page 100 (
             }
             source {
                 dataType: DATE
+            }
+        )
+
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 10
+            region: @collectionsIR
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 110
+                clearCache: 110
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-dialog-close (
+        name: Refresh on Dialog Close
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @collectionsIR
+        }
+
+        action refresh-collections (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @collectionsIR
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
             }
         )
 

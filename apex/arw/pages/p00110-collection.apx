@@ -1,0 +1,388 @@
+page 110 (
+    name: Collection
+    alias: COLLECTION
+    title: Collection
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Create or edit a collection. Deleting a collection only deactivates it, and is refused while it still has active child collections, endpoints or environments.
+    }
+
+    region collectionForm (
+        name: Collection
+        type: form
+        source {
+            location: localDatabase
+            tableName: ARW_COLLECTIONS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+        }
+    )
+
+    region buttonsSR (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P110_COLLECTION_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @collectionForm
+            slot: regionBody
+        }
+        source {
+            formRegion: @collectionForm
+            column: COLLECTION_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P110_NAME (
+        type: textField
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @collectionForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 200
+        }
+        source {
+            formRegion: @collectionForm
+            column: NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_DESCRIPTION (
+        type: textarea
+        label {
+            label: Description
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @collectionForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+            height: 4
+        }
+        validation {
+            maxLength: 500
+        }
+        source {
+            formRegion: @collectionForm
+            column: DESCRIPTION
+            dataType: varchar2
+        }
+    )
+
+    pageItem P110_PARENT_COLLECTION_ID (
+        type: selectList
+        label {
+            label: Parent Collection
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.name                                              as display_value
+                     , c.collection_id                                     as return_value
+                  from arw_collections c
+                 where c.active_yn = 'Y'
+                   and c.collection_id != nvl(:P110_COLLECTION_ID, -1)
+                 order by c.name
+                ```
+            displayNullValue: true
+            nullDisplayValue: - No parent -
+        }
+        layout {
+            sequence: 40
+            region: @collectionForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            formRegion: @collectionForm
+            column: PARENT_COLLECTION_ID
+            dataType: number
+        }
+        help {
+            inlineHelpText: Leave empty for a top-level collection
+        }
+    )
+
+    button CANCEL (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttonsSR
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button DELETE (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttonsSR
+            slot: DELETE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P110_COLLECTION_ID
+        }
+    )
+
+    button SAVE (
+        buttonName: SAVE
+        label: Save
+        layout {
+            sequence: 30
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P110_COLLECTION_ID
+        }
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 40
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P110_COLLECTION_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @CANCEL
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process initialize-collection-form (
+        name: Initialize Collection Form
+        type: formInitialization
+        formRegion: @collectionForm
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+    process create-collection (
+        name: Create Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                :P110_COLLECTION_ID := arw_collections_api.create_collection(
+                                           p_name                 => :P110_NAME
+                                         , p_description          => :P110_DESCRIPTION
+                                         , p_parent_collection_id => :P110_PARENT_COLLECTION_ID
+                                       );
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Collection created.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'CREATE'
+                ```
+        }
+    )
+
+    process save-collection (
+        name: Save Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_collections_api.update_collection(
+                    p_collection_id        => :P110_COLLECTION_ID
+                  , p_name                 => :P110_NAME
+                  , p_description          => :P110_DESCRIPTION
+                  , p_parent_collection_id => :P110_PARENT_COLLECTION_ID
+                );
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Collection saved.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SAVE'
+                ```
+        }
+    )
+
+    process delete-collection (
+        name: Delete Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_collections_api.deactivate_collection(
+                    p_collection_id        => :P110_COLLECTION_ID
+                );
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Collection deleted.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('CREATE', 'SAVE', 'DELETE')
+                ```
+        }
+    )
+
+)

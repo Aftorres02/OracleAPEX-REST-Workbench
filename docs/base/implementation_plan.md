@@ -393,6 +393,38 @@ versión mínima de la Fase 0.
 > (Endpoints — aunque para ese ya existe `arw_endpoint_api`) y a
 > 300/310 (Environments — necesita `arw_environments_api`, tampoco
 > existe todavía).
+>
+> **Actualización (2026-10-22, issue #23): editor de Collections hecho.**
+>
+> - `arw_collections_api` (`create_collection`, `update_collection`,
+>   `deactivate_collection`) compila `VALID`. Valida el padre (existe,
+>   activo, no es la misma colección ni un descendiente — sin ciclos) y
+>   no desactiva una colección con hijas, endpoints o environments
+>   activos. Códigos `-20940` (no encontrada), `-20941` (padre inválido),
+>   `-20942` (tiene dependientes). Probado en vivo: 10 casos (camino feliz
+>   + cada error) dentro de una transacción con `rollback`, cero filas de
+>   prueba remanentes.
+>
+> - Página 110 (modal): formulario sobre `arw_collections`; los botones
+>   CREATE/SAVE/DELETE disparan procesos PL/SQL que llaman al paquete (sin
+>   Automatic Row Processing), con condiciones Expression sobre
+>   `:REQUEST`.
+>
+> - Página 100: link por fila declarativo (`link { linkColumn:
+>   customTarget, target { page: 110 ... } }`, la forma de la plantilla
+>   oficial del IR — validó al primer intento, sin JavaScript), botón
+>   CREATE y refresco del IR al cerrar el diálogo.
+>
+> - `apex validate -input apex/arw` limpio, cero warnings.
+>
+> **`apex import` sigue pendiente:** el usuario lo autorizó, pero el
+> permiso de la sesión del agente lo bloqueó como despliegue en vivo. ARW
+> todavía no existe en `DEV_AI_1` (ids actuales: 106, 111, 114, 10402),
+> así que el primer import va sin `-id`; los siguientes, con `-id <id>`.
+>
+> **Falta además:** la app no tiene Error Handling Function global
+> (`error-handling.md` §3), así que los errores `ORA-2094x` del paquete se
+> muestran tal cual en la notificación.
 
 ### Fase 2 — Import de colecciones Postman
 
