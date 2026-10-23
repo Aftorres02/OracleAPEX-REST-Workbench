@@ -1,0 +1,344 @@
+page 200 (
+    name: Endpoints
+    alias: ENDPOINTS
+    title: &P200_COLLECTION_NAME.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Lists the active endpoints of a collection (or of every collection when none is selected) with their last execution status and data profile status. Open an endpoint to edit, send and generate code for it.
+    }
+
+    region endpointsIR (
+        name: Endpoints
+        title: &P200_COLLECTION_NAME.
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select e.endpoint_id                                       as endpoint_id
+                     , e.collection_id                                     as collection_id
+                     , e.collection_name                                   as collection_name
+                     , e.http_method                                       as http_method
+                     , e.name                                              as name
+                     , e.display_url                                       as display_url
+                     , e.sample_count                                      as sample_count
+                     , e.profile_status_code                               as profile_status_code
+                     , e.last_status_label                                 as last_status_label
+                     , e.last_status_class                                 as last_status_class
+                     , e.last_elapsed_ms                                   as last_elapsed_ms
+                     , e.last_executed_on                                  as last_executed_on
+                  from arw_endpoint_summary_vw e
+                 where (   :P200_COLLECTION_ID is null
+                        or e.collection_id = :P200_COLLECTION_ID
+                       )
+                ```
+            pageItemsToSubmit: [
+                P200_COLLECTION_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 210
+                items: {
+                    P210_ENDPOINT_ID: #ENDPOINT_ID#
+                }
+                clearCache: 210
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No endpoints yet -- create one, or import a Postman collection.
+        }
+
+        column ENDPOINT_ID (
+            type: hidden
+            heading {
+                heading: Endpoint Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column COLLECTION_ID (
+            type: hidden
+            heading {
+                heading: Collection Id
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column HTTP_METHOD (
+            type: plainText
+            heading {
+                heading: Method
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+            columnFormatting {
+                htmlExpression: <span class="arw-chip arw-chip--method">#HTTP_METHOD#</span>
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column DISPLAY_URL (
+            type: plainText
+            heading {
+                heading: URL
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: STRING
+            }
+            columnFormatting {
+                htmlExpression: <span class="arw-mono">#DISPLAY_URL#</span>
+            }
+        )
+
+        column COLLECTION_NAME (
+            type: plainText
+            heading {
+                heading: Collection
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: STRING
+            }
+            serverSideCondition {
+                type: itemIsNull
+                item: P200_COLLECTION_ID
+            }
+        )
+
+        column SAMPLE_COUNT (
+            type: plainText
+            heading {
+                heading: Samples
+                alignment: end
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column PROFILE_STATUS_CODE (
+            type: plainText
+            heading {
+                heading: Profile
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: STRING
+            }
+            columnFormatting {
+                htmlExpression: {case PROFILE_STATUS_CODE/}{when accepted/}<span class="arw-chip arw-chip--ok">accepted</span>{when proposal/}<span class="arw-chip arw-chip--warn">proposal</span>{otherwise/}<span class="arw-chip">none</span>{endcase/}
+            }
+        )
+
+        column LAST_STATUS_LABEL (
+            type: plainText
+            heading {
+                heading: Last Status
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: STRING
+            }
+            columnFormatting {
+                htmlExpression: {if LAST_STATUS_CLASS/}<span class="arw-chip arw-chip--#LAST_STATUS_CLASS#">#LAST_STATUS_LABEL#</span>{endif/}{if !LAST_STATUS_CLASS/}<span class="arw-chip">never sent</span>{endif/}
+            }
+        )
+
+        column LAST_STATUS_CLASS (
+            type: hidden
+            heading {
+                heading: Last Status Class
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column LAST_ELAPSED_MS (
+            type: plainText
+            heading {
+                heading: Elapsed (ms)
+                alignment: end
+            }
+            layout {
+                sequence: 110
+                columnAlignment: end
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column LAST_EXECUTED_ON (
+            type: plainText
+            heading {
+                heading: Last Sent
+            }
+            layout {
+                sequence: 120
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI
+            }
+            source {
+                dataType: DATE
+            }
+        )
+
+    )
+
+    region paramsSR (
+        name: {params}
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P200_COLLECTION_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P200_COLLECTION_NAME (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    computation compute-collection-name (
+        itemName: P200_COLLECTION_NAME
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select coalesce(
+                           max(c.name)
+                         , 'All endpoints'
+                       )                                                   as collection_name
+                  from arw_collections c
+                 where c.collection_id = :P200_COLLECTION_ID
+                   and c.active_yn = 'Y'
+                ```
+        }
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 10
+            region: @endpointsIR
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                items: {
+                    P210_COLLECTION_ID: &P200_COLLECTION_ID.
+                }
+                clearCache: 210
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
