@@ -661,6 +661,15 @@ begin
                          || l_rec.environment_count || ' environments');
   end loop;
 
-  dbms_output.put_line('default target profile = ' || arw_target_profiles_api.default_profile_id);
+  -- Same rule as arw_target_profiles_api.default_profile_id, inlined so the
+  -- seed does not depend on the packages being installed.
+  for l_rec in (
+    select min(tp.target_profile_id)                                   as target_profile_id
+      from arw_target_profiles tp
+     where tp.active_yn = 'Y'
+  )
+  loop
+    dbms_output.put_line('default target profile = ' || l_rec.target_profile_id);
+  end loop;
 end;
 /

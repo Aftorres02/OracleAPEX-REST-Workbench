@@ -16,9 +16,11 @@
 --     url-encoded (it is a display string, as in the mockup URL bar). This
 --     view is the single definition: arw_endpoint_api.display_url reads it,
 --     so report queries never call a logging PL/SQL function once per row.
---   * data_profile_id / profile_status_code come from the endpoint's newest
---     active data profile (arw_data_profiles -> arw_response_samples);
---     both are null when the endpoint has no profile yet.
+--   * data_profile_id / profile_status_code (proposal, accepted) come from
+--     the endpoint's newest active data profile (arw_data_profiles ->
+--     arw_response_samples); both are null when the endpoint has no profile
+--     yet. profile_status_code is added by release/code/discovery_upgrade.sql,
+--     which runs before the views.
 --   * The last_* columns reuse arw_execution_log_vw so the status label,
 --     class and reason phrase are defined only once.
 create or replace view arw_endpoint_summary_vw
@@ -79,9 +81,7 @@ select b.endpoint_id                                                   as endpoi
      , b.runtime_target_code                                           as runtime_target_code
      , coalesce(s.sample_count, 0)                                     as sample_count
      , p.data_profile_id                                               as data_profile_id
-     , case
-         when p.data_profile_id is not null then 'proposal'
-       end                                                             as profile_status_code
+     , dp.profile_status_code                                          as profile_status_code
      , l.last_execution_id                                             as last_execution_id
      , xl.status_label                                                 as last_status_label
      , xl.status_class                                                 as last_status_class
@@ -92,5 +92,6 @@ select b.endpoint_id                                                   as endpoi
   left join w_query                      q on q.endpoint_id = b.endpoint_id
   left join w_samples                    s on s.endpoint_id = b.endpoint_id
   left join w_profiles                   p on p.endpoint_id = b.endpoint_id
+  left join arw_data_profiles           dp on dp.data_profile_id = p.data_profile_id
   left join w_last                       l on l.endpoint_id = b.endpoint_id
   left join arw_execution_log_vw        xl on xl.execution_id = l.last_execution_id;
