@@ -254,42 +254,45 @@ as
   /**
    * Resets apex_web_service.g_request_headers (global, persists across calls
    * -- IMPLEMENTATION.md section 12) and repopulates it from the endpoint's
-   * active static headers, a Content-Type header when the body needs one,
-   * and the auth headers arw_auth_utils.get_auth_headers resolves for the
-   * credential. Returns a redacted "name: value" summary for storage in
+   * active static headers plus a Content-Type header when the body needs
+   * one. Does not add an auth header itself -- p_credential_static_id (when
+   * not null) is passed straight through to make_rest_request by
+   * execute_endpoint, which attaches the real Authorization header or query
+   * parameter from the Web Credential store without this code ever seeing
+   * the secret; this function only records that fact in the summary.
+   * Returns a redacted "name: value" summary for storage in
    * arw_executions.request_headers -- static headers are redacted per
-   * is_sensitive_yn, auth-derived headers are always redacted
-   * unconditionally (not optional, per IMPLEMENTATION.md section 12).
+   * is_sensitive_yn (not optional, per IMPLEMENTATION.md section 12).
    *
    * @example N/A -- private package-body unit, not callable outside arw_exec_api;
    *           see execute_endpoint's runnable example, which exercises this indirectly.
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   N/A (Phase 1 - basic/bearer/API key auth via p_credential_static_id)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
    *
-   * @param  p_endpoint_id    Endpoint whose static headers are applied
-   * @param  p_credential_id  Credential to resolve auth headers for; null means no auth
-   * @param  p_content_type   Content-Type to add when the body needs one and no header already sets it
-   * @return clob             Redacted "name: value" summary of every header actually sent
+   * @param  p_endpoint_id            Endpoint whose static headers are applied
+   * @param  p_credential_static_id   apex_credential static ID that will be passed to make_rest_request; null means no auth
+   * @param  p_content_type           Content-Type to add when the body needs one and no header already sets it
+   * @return clob                     Redacted "name: value" summary of every header actually sent
    */
   function apply_request_headers(
       p_endpoint_id                             in arw_endpoint_headers.endpoint_id%type
-    , p_credential_id                           in arw_credentials.credential_id%type
+    , p_credential_static_id                    in arw_credentials.apex_credential_static_id%type
     , p_content_type                            in arw_request_bodies.content_type%type
   )
   return clob
   is
-    l_scope        logger_logs.scope%type := gc_scope_prefix || 'apply_request_headers';
-    l_params       logger.tab_param;
-    l_summary      clob;
-    l_header_idx   pls_integer := 0;
-    l_has_ct       boolean := false;
-    l_auth_headers arw_auth_utils.t_header_tab;
+    l_scope      logger_logs.scope%type := gc_scope_prefix || 'apply_request_headers';
+    l_params     logger.tab_param;
+    l_summary    clob;
+    l_header_idx pls_integer := 0;
+    l_has_ct     boolean := false;
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
-    logger.append_param(l_params, 'p_credential_id', p_credential_id);
+    logger.append_param(l_params, 'p_credential_static_id', p_credential_static_id);
     logger.log('START', l_scope, null, l_params);
 
     apex_web_service.g_request_headers.delete;
@@ -326,22 +329,10 @@ as
     end if;
 
 
-    -- ===========================================================================
-    -- Resolve and append auth headers for this credential.
-    -- ===========================================================================
-
-    l_auth_headers := arw_auth_utils.get_auth_headers(
-        p_credential_id                         => p_credential_id
-    );
-    -- ===========================================================================
-
-    for i in 1 .. l_auth_headers.count loop
-      l_header_idx := l_header_idx + 1;
-      apex_web_service.g_request_headers(l_header_idx).name  := l_auth_headers(i).header_name;
-      apex_web_service.g_request_headers(l_header_idx).value := l_auth_headers(i).header_value;
-
-      l_summary := l_summary || l_auth_headers(i).header_name || ': ***REDACTED***' || chr(10);
-    end loop;
+    if p_credential_static_id is not null then
+      l_summary := l_summary || '(auth applied by APEX via apex_credential static_id="'
+                   || p_credential_static_id || '", redacted)' || chr(10);
+    end if;
 
     logger.log('END', l_scope, null, l_params);
 
@@ -500,6 +491,7 @@ as
 
     l_endpoint_collection_id arw_endpoints.collection_id%type;
     l_credential_id          arw_endpoints.credential_id%type;
+    l_credential_static_id   arw_credentials.apex_credential_static_id%type;
     l_http_method            arw_endpoints.http_method%type;
     l_url_path               arw_endpoints.url_path%type;
     l_timeout_secs           arw_endpoints.timeout_secs%type;
@@ -607,9 +599,21 @@ as
 
     l_url := l_base_url || l_url_path || build_query_string(p_endpoint_id => p_endpoint_id);
 
+
+    -- ===========================================================================
+    -- Resolve the credential to a static ID APEX can attach the real auth
+    -- to itself -- this code never sees the secret (implementation_plan.md
+    -- section 5, Fase 1).
+    -- ===========================================================================
+
+    l_credential_static_id := arw_auth_utils.resolve_credential_static_id(
+        p_credential_id                         => l_credential_id
+    );
+    -- ===========================================================================
+
     l_request_headers := apply_request_headers(
         p_endpoint_id                           => p_endpoint_id
-      , p_credential_id                         => l_credential_id
+      , p_credential_static_id                  => l_credential_static_id
       , p_content_type                          => l_content_type
     );
 
@@ -621,6 +625,7 @@ as
         , p_http_method                         => l_http_method
         , p_body                                => l_body
         , p_transfer_timeout                    => l_timeout_secs
+        , p_credential_static_id                => l_credential_static_id
       );
 
       l_end_cs               := dbms_utility.get_time;
