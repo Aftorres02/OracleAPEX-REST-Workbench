@@ -2568,14 +2568,13 @@ as
 
 
   -- ===========================================================================
-  -- PROCEDURE: store_artifact (private)
+  -- PROCEDURE: write_artifact (private)
   -- ===========================================================================
   /**
    * Stores a new version of the artifact unless the latest stored version
-   * of (endpoint, target profile, type) has the same checksum. Runs in its
-   * own autonomous transaction -- the artifact history is a log, like
-   * arw_executions -- so get_artifact also works from a SQL query or a
-   * region source.
+   * of (endpoint, target profile, type) has the same checksum. Runs in the
+   * caller's transaction and never commits -- see store_artifact for the
+   * autonomous variant and get_artifact for which one is used when.
    *
    * @example N/A -- private package-body unit; exercised through get_artifact.
    *
@@ -2589,15 +2588,14 @@ as
    * @param p_content Generated content
    * @param p_checksum Checksum of the content (date-independent)
    */
-  procedure store_artifact(
+  procedure write_artifact(
       p_ctx                                     in t_ctx
     , p_artifact_type_code                      in arw_generated_artifacts.artifact_type_code%type
     , p_content                                 in clob
     , p_checksum                                in arw_generated_artifacts.checksum%type
   )
   is
-    pragma autonomous_transaction;
-    l_scope        logger_logs.scope%type := gc_scope_prefix || 'store_artifact';
+    l_scope        logger_logs.scope%type := gc_scope_prefix || 'write_artifact';
     l_params       logger.tab_param;
     l_last_sum     arw_generated_artifacts.checksum%type;
     l_last_version arw_generated_artifacts.version_num%type;
@@ -2646,6 +2644,63 @@ as
       );
       logger.append_param(l_params, 'version_num', l_last_version + 1);
     end if;
+
+    logger.log('END', l_scope, null, l_params);
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end write_artifact;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- PROCEDURE: store_artifact (private)
+  -- ===========================================================================
+  /**
+   * write_artifact in its own autonomous transaction -- the artifact history
+   * is a log, like arw_executions -- so get_artifact also works from a SQL
+   * query or a region source. Only safe when the caller has no uncommitted
+   * work: an artifact referencing a data profile the caller just created
+   * would wait on the caller's own transaction (ORA-00060).
+   *
+   * @example N/A -- private package-body unit; exercised through get_artifact.
+   *
+   * @issue   #25 (Fase 1 - full app: code generation)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 23, 2026
+   *
+   * @param p_ctx Generation context (endpoint, target and data profile)
+   * @param p_artifact_type_code Artifact type
+   * @param p_content Generated content
+   * @param p_checksum Checksum of the content (date-independent)
+   */
+  procedure store_artifact(
+      p_ctx                                     in t_ctx
+    , p_artifact_type_code                      in arw_generated_artifacts.artifact_type_code%type
+    , p_content                                 in clob
+    , p_checksum                                in arw_generated_artifacts.checksum%type
+  )
+  is
+    pragma autonomous_transaction;
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'store_artifact';
+    l_params logger.tab_param;
+  begin
+    logger.append_param(l_params, 'p_artifact_type_code', p_artifact_type_code);
+    logger.log('START', l_scope, null, l_params);
+
+    write_artifact(
+        p_ctx                                   => p_ctx
+      , p_artifact_type_code                    => p_artifact_type_code
+      , p_content                               => p_content
+      , p_checksum                              => p_checksum
+    );
 
     commit;
 
@@ -2781,6 +2836,9 @@ as
     l_ctx      t_ctx;
     l_content  clob;
     l_checksum arw_generated_artifacts.checksum%type;
+
+    e_dml_in_query exception;
+    pragma exception_init(e_dml_in_query, -14551);
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
     logger.append_param(l_params, 'p_artifact_type_code', p_artifact_type_code);
@@ -2801,15 +2859,33 @@ as
 
 
       -- =========================================================================
-      -- Version only when the content changed.
+      -- Version only when the content changed. With nothing pending in the
+      -- caller's transaction, store autonomously (works from SQL too);
+      -- otherwise store in the caller's transaction, since the artifact may
+      -- reference rows it has not committed yet. From a query with pending
+      -- work (ORA-14551) the version is simply not recorded.
       -- =========================================================================
 
-      store_artifact(
-          p_ctx                                 => l_ctx
-        , p_artifact_type_code                  => p_artifact_type_code
-        , p_content                             => l_content
-        , p_checksum                            => l_checksum
-      );
+      if dbms_transaction.local_transaction_id is null then
+        store_artifact(
+            p_ctx                               => l_ctx
+          , p_artifact_type_code                => p_artifact_type_code
+          , p_content                           => l_content
+          , p_checksum                          => l_checksum
+        );
+      else
+        begin
+          write_artifact(
+              p_ctx                             => l_ctx
+            , p_artifact_type_code              => p_artifact_type_code
+            , p_content                         => l_content
+            , p_checksum                        => l_checksum
+          );
+        exception
+          when e_dml_in_query then
+            logger.log('Version not stored: called from a query with pending work', l_scope, null, l_params);
+        end;
+      end if;
       -- =========================================================================
     end if;
 
