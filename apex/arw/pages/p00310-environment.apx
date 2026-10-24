@@ -19,6 +19,9 @@ page 310 (
     }
 
     region environmentForm (
+        advanced {
+            htmlDomId: environmentForm
+        }
         name: Environment
         type: form
         source {
@@ -39,6 +42,9 @@ page 310 (
     )
 
     region variablesIG (
+        advanced {
+            htmlDomId: variablesIG
+        }
         name: Variables
         type: interactiveGrid
         source {
@@ -213,6 +219,9 @@ page 310 (
     )
 
     region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
         name: Buttons
         type: staticContent
         layout {
@@ -359,6 +368,9 @@ page 310 (
 
     button CANCEL (
         buttonName: CANCEL
+        advanced {
+            htmlDomId: CANCEL
+        }
         label: Cancel
         layout {
             sequence: 10
@@ -376,6 +388,9 @@ page 310 (
 
     button DELETE (
         buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
         label: Delete
         layout {
             sequence: 20
@@ -403,6 +418,9 @@ page 310 (
 
     button SAVE (
         buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
         label: Save
         layout {
             sequence: 30
@@ -425,6 +443,9 @@ page 310 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 40

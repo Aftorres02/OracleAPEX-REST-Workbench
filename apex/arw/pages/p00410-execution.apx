@@ -19,6 +19,9 @@ page 410 (
     }
 
     region requestCR (
+        advanced {
+            htmlDomId: requestCR
+        }
         name: Request
         title: Request
         type: classicReport
@@ -170,6 +173,9 @@ page 410 (
     )
 
     region responseCR (
+        advanced {
+            htmlDomId: responseCR
+        }
         name: Response
         title: Response
         type: classicReport
@@ -356,6 +362,9 @@ page 410 (
     )
 
     region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
         name: Buttons
         type: staticContent
         layout {
@@ -369,6 +378,9 @@ page 410 (
     )
 
     region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
         name: {params}
         type: staticContent
         layout {
@@ -395,6 +407,9 @@ page 410 (
 
     button CLOSE (
         buttonName: CLOSE
+        advanced {
+            htmlDomId: CLOSE
+        }
         label: Close
         layout {
             sequence: 10

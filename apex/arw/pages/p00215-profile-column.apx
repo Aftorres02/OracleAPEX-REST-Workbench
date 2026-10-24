@@ -16,6 +16,9 @@ page 215 (
     }
 
     region columnForm (
+        advanced {
+            htmlDomId: columnForm
+        }
         name: Profile Column
         type: form
         source {
@@ -36,6 +39,9 @@ page 215 (
     )
 
     region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
         name: Buttons
         type: staticContent
         layout {
@@ -280,6 +286,9 @@ page 215 (
 
     button CANCEL (
         buttonName: CANCEL
+        advanced {
+            htmlDomId: CANCEL
+        }
         label: Cancel
         layout {
             sequence: 10
@@ -297,6 +306,9 @@ page 215 (
 
     button SAVE (
         buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
         label: Save
         layout {
             sequence: 20

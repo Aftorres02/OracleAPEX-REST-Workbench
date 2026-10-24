@@ -15,6 +15,9 @@ page 400 (
     }
 
     region historyHeadSR (
+        advanced {
+            htmlDomId: historyHeadSR
+        }
         name: History Header
         type: staticContent
         source {
@@ -40,6 +43,9 @@ page 400 (
     )
 
     region historyIR (
+        advanced {
+            htmlDomId: historyIR
+        }
         name: Executions
         type: interactiveReport
         source {

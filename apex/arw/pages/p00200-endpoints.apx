@@ -15,6 +15,9 @@ page 200 (
     }
 
     region endpointsIR (
+        advanced {
+            htmlDomId: endpointsIR
+        }
         name: Endpoints
         title: &P200_COLLECTION_NAME.
         type: interactiveReport
@@ -258,6 +261,9 @@ page 200 (
     )
 
     region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
         name: {params}
         type: staticContent
         layout {
@@ -317,6 +323,9 @@ page 200 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 10

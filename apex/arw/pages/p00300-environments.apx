@@ -15,6 +15,9 @@ page 300 (
     }
 
     region environmentsHeadSR (
+        advanced {
+            htmlDomId: environmentsHeadSR
+        }
         name: Environments Header
         type: staticContent
         source {
@@ -40,6 +43,9 @@ page 300 (
     )
 
     region environmentsIR (
+        advanced {
+            htmlDomId: environmentsIR
+        }
         name: Environments
         type: interactiveReport
         source {
@@ -241,6 +247,9 @@ page 300 (
     )
 
     region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
         name: {params}
         type: staticContent
         layout {
@@ -267,6 +276,9 @@ page 300 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 10

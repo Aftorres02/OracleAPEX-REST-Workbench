@@ -16,6 +16,9 @@ page 510 (
     }
 
     region targetProfileForm (
+        advanced {
+            htmlDomId: targetProfileForm
+        }
         name: Target profile
         type: form
         source {
@@ -36,6 +39,9 @@ page 510 (
     )
 
     region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
         name: Buttons
         type: staticContent
         layout {
@@ -327,6 +333,9 @@ page 510 (
 
     button CANCEL (
         buttonName: CANCEL
+        advanced {
+            htmlDomId: CANCEL
+        }
         label: Cancel
         layout {
             sequence: 10
@@ -344,6 +353,9 @@ page 510 (
 
     button DELETE (
         buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
         label: Delete
         layout {
             sequence: 20
@@ -371,6 +383,9 @@ page 510 (
 
     button SAVE (
         buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
         label: Save
         layout {
             sequence: 30
@@ -393,6 +408,9 @@ page 510 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 40

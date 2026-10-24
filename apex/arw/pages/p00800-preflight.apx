@@ -15,6 +15,9 @@ page 800 (
     }
 
     region preflightFilterSR (
+        advanced {
+            htmlDomId: preflightFilterSR
+        }
         name: Preflight Filters
         type: staticContent
         layout {
@@ -28,6 +31,9 @@ page 800 (
     )
 
     region preflightSR (
+        advanced {
+            htmlDomId: preflightSR
+        }
         name: Preflight
         type: staticContent
         layout {
@@ -45,6 +51,9 @@ page 800 (
     )
 
     region preflightHeadCR (
+        advanced {
+            htmlDomId: preflightHeadCR
+        }
         name: Preflight Header
         type: classicReport
         source {
@@ -139,6 +148,9 @@ page 800 (
     )
 
     region preflightChecksCR (
+        advanced {
+            htmlDomId: preflightChecksCR
+        }
         name: Preflight Checks
         type: classicReport
         source {
@@ -357,6 +369,9 @@ page 800 (
 
     button CREDENTIALS (
         buttonName: CREDENTIALS
+        advanced {
+            htmlDomId: CREDENTIALS
+        }
         label: Credentials
         layout {
             sequence: 10

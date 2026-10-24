@@ -15,6 +15,9 @@ page 700 (
     }
 
     region importHeadSR (
+        advanced {
+            htmlDomId: importHeadSR
+        }
         name: Import Header
         type: staticContent
         source {
@@ -39,6 +42,9 @@ page 700 (
     )
 
     region importSR (
+        advanced {
+            htmlDomId: importSR
+        }
         name: Postman collection
         title: Postman collection
         type: staticContent
@@ -156,6 +162,9 @@ page 700 (
 
     button IMPORT (
         buttonName: IMPORT
+        advanced {
+            htmlDomId: IMPORT
+        }
         label: Import
         layout {
             sequence: 10

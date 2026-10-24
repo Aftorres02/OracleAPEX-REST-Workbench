@@ -202,6 +202,9 @@ page 210 (
     // =========================================================================
 
     region editorSR (
+        advanced {
+            htmlDomId: editorSR
+        }
         name: Endpoint Editor
         type: staticContent
         layout {
@@ -218,6 +221,9 @@ page 210 (
     )
 
     region topbarCR (
+        advanced {
+            htmlDomId: topbarCR
+        }
         name: Top Bar
         type: classicReport
         source {
@@ -320,6 +326,9 @@ page 210 (
     )
 
     region requestBarCR (
+        advanced {
+            htmlDomId: requestBarCR
+        }
         name: Request
         type: classicReport
         source {
@@ -395,6 +404,9 @@ page 210 (
     )
 
     region tabsSR (
+        advanced {
+            htmlDomId: tabsSR
+        }
         name: Endpoint Tabs
         type: staticContent
         layout {
@@ -417,6 +429,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region endpointForm (
+        advanced {
+            htmlDomId: endpointForm
+        }
         name: General
         title: General
         type: form
@@ -439,6 +454,9 @@ page 210 (
     )
 
     region generalButtonsSR (
+        advanced {
+            htmlDomId: generalButtonsSR
+        }
         name: General Buttons
         type: staticContent
         layout {
@@ -457,6 +475,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region authSR (
+        advanced {
+            htmlDomId: authSR
+        }
         name: Auth
         title: Auth
         type: staticContent
@@ -476,6 +497,9 @@ page 210 (
     )
 
     region authButtonsSR (
+        advanced {
+            htmlDomId: authButtonsSR
+        }
         name: Auth Buttons
         type: staticContent
         layout {
@@ -494,6 +518,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region headersIG (
+        advanced {
+            htmlDomId: headersIG
+        }
         name: Headers
         title: Headers
         type: interactiveGrid
@@ -668,6 +695,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region paramsIG (
+        advanced {
+            htmlDomId: paramsIG
+        }
         name: Params
         title: Params
         type: interactiveGrid
@@ -908,6 +938,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region bodySR (
+        advanced {
+            htmlDomId: bodySR
+        }
         name: Body
         title: Body
         type: staticContent
@@ -927,6 +960,9 @@ page 210 (
     )
 
     region bodyButtonsSR (
+        advanced {
+            htmlDomId: bodyButtonsSR
+        }
         name: Body Buttons
         type: staticContent
         layout {
@@ -945,6 +981,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region responseSR (
+        advanced {
+            htmlDomId: responseSR
+        }
         name: Response
         title: Response
         type: staticContent
@@ -964,6 +1003,9 @@ page 210 (
     )
 
     region responseChipsCR (
+        advanced {
+            htmlDomId: responseChipsCR
+        }
         name: Response Status
         type: classicReport
         source {
@@ -1081,6 +1123,9 @@ page 210 (
     )
 
     region responseBodyDC (
+        advanced {
+            htmlDomId: responseBodyDC
+        }
         name: Response Body
         type: dynamicContent
         source {
@@ -1140,6 +1185,9 @@ page 210 (
     )
 
     region responseFooterCR (
+        advanced {
+            htmlDomId: responseFooterCR
+        }
         name: Samples
         type: classicReport
         source {
@@ -1227,6 +1275,9 @@ page 210 (
     )
 
     region profileSR (
+        advanced {
+            htmlDomId: profileSR
+        }
         name: Derived data profile
         title: Derived data profile
         type: staticContent
@@ -1242,6 +1293,9 @@ page 210 (
     )
 
     region profileHeaderCR (
+        advanced {
+            htmlDomId: profileHeaderCR
+        }
         name: Profile Summary
         type: classicReport
         source {
@@ -1324,6 +1378,9 @@ page 210 (
     )
 
     region profileColumnsCR (
+        advanced {
+            htmlDomId: profileColumnsCR
+        }
         name: Profile Columns
         type: classicReport
         source {
@@ -1479,6 +1536,9 @@ page 210 (
     )
 
     region profileNotesCR (
+        advanced {
+            htmlDomId: profileNotesCR
+        }
         name: Profile Notes
         type: classicReport
         source {
@@ -1567,6 +1627,9 @@ page 210 (
     )
 
     region profileButtonsSR (
+        advanced {
+            htmlDomId: profileButtonsSR
+        }
         name: Profile Buttons
         type: staticContent
         layout {
@@ -1585,6 +1648,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region codeSR (
+        advanced {
+            htmlDomId: codeSR
+        }
         name: Code
         title: Code
         type: staticContent
@@ -1604,6 +1670,9 @@ page 210 (
     )
 
     region artifactListCR (
+        advanced {
+            htmlDomId: artifactListCR
+        }
         name: Artifacts
         type: classicReport
         source {
@@ -1711,6 +1780,9 @@ page 210 (
     )
 
     region codePanelSR (
+        advanced {
+            htmlDomId: codePanelSR
+        }
         name: Code Panel
         type: staticContent
         layout {
@@ -1728,6 +1800,9 @@ page 210 (
     )
 
     region codeChipsCR (
+        advanced {
+            htmlDomId: codeChipsCR
+        }
         name: Target Profile Settings
         type: classicReport
         source {
@@ -1812,6 +1887,9 @@ page 210 (
     )
 
     region codeDC (
+        advanced {
+            htmlDomId: codeDC
+        }
         name: Generated Code
         type: dynamicContent
         source {
@@ -1876,6 +1954,9 @@ page 210 (
     )
 
     region codeFooterSR (
+        advanced {
+            htmlDomId: codeFooterSR
+        }
         name: Bundle
         type: staticContent
         layout {
@@ -1894,6 +1975,9 @@ page 210 (
     // -------------------------------------------------------------------------
 
     region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
         name: {params}
         type: staticContent
         layout {
@@ -2506,6 +2590,9 @@ page 210 (
 
     button SEND (
         buttonName: SEND
+        advanced {
+            htmlDomId: SEND
+        }
         label: Send
         layout {
             sequence: 10
@@ -2524,6 +2611,9 @@ page 210 (
 
     button DELETE (
         buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
         label: Delete
         layout {
             sequence: 10
@@ -2551,6 +2641,9 @@ page 210 (
 
     button SAVE (
         buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
         label: Save
         layout {
             sequence: 20
@@ -2573,6 +2666,9 @@ page 210 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 30
@@ -2595,6 +2691,9 @@ page 210 (
 
     button MANAGE_CREDENTIALS (
         buttonName: MANAGE_CREDENTIALS
+        advanced {
+            htmlDomId: MANAGE_CREDENTIALS
+        }
         label: Manage credentials
         layout {
             sequence: 10
@@ -2616,6 +2715,9 @@ page 210 (
 
     button SAVE_AUTH (
         buttonName: SAVE_AUTH
+        advanced {
+            htmlDomId: SAVE_AUTH
+        }
         label: Save
         layout {
             sequence: 20
@@ -2634,6 +2736,9 @@ page 210 (
 
     button REMOVE_BODY (
         buttonName: REMOVE_BODY
+        advanced {
+            htmlDomId: REMOVE_BODY
+        }
         label: Remove body
         layout {
             sequence: 10
@@ -2667,6 +2772,9 @@ page 210 (
 
     button SAVE_BODY (
         buttonName: SAVE_BODY
+        advanced {
+            htmlDomId: SAVE_BODY
+        }
         label: Save body
         layout {
             sequence: 20
@@ -2685,6 +2793,9 @@ page 210 (
 
     button DERIVE_PROFILE (
         buttonName: DERIVE_PROFILE
+        advanced {
+            htmlDomId: DERIVE_PROFILE
+        }
         label: Derive data profile
         layout {
             sequence: 10
@@ -2702,6 +2813,9 @@ page 210 (
 
     button ADD_SAMPLE (
         buttonName: ADD_SAMPLE
+        advanced {
+            htmlDomId: ADD_SAMPLE
+        }
         label: Add sample
         layout {
             sequence: 10
@@ -2719,6 +2833,9 @@ page 210 (
 
     button ACCEPT_PROFILE (
         buttonName: ACCEPT_PROFILE
+        advanced {
+            htmlDomId: ACCEPT_PROFILE
+        }
         label: Accept profile
         layout {
             sequence: 20
@@ -2737,6 +2854,9 @@ page 210 (
 
     button DOWNLOAD (
         buttonName: DOWNLOAD
+        advanced {
+            htmlDomId: DOWNLOAD
+        }
         label: Download .apx bundle
         layout {
             sequence: 10
