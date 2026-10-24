@@ -8,7 +8,7 @@ as
   gc_err_environment_not_found      constant number := -20921;
   gc_err_environment_mismatch       constant number := -20922;
   gc_err_preflight_failed           constant number := -20923;
-  gc_err_param_kind_not_implemented constant number := -20924;
+  gc_err_param_unresolved           constant number := -20924;
   gc_err_engine_not_implemented     constant number := -20925;
 
 
@@ -68,56 +68,157 @@ as
 
 
   -- ===========================================================================
-  -- PROCEDURE: reject_unsupported_params (private)
+  -- FUNCTION: substitute_variables (private)
   -- ===========================================================================
   /**
-   * Fails loudly when the endpoint has active path/form parameters, instead
-   * of silently executing a request that ignores them. Phase 0 only
-   * substitutes query parameters -- see docs/base/implementation_plan.md
-   * section 4 (0.5, "ejecucion real minima").
+   * Replaces every {{var_name}} token with the environment's active variable
+   * of that name, and {{base_url}} with the environment base URL. Tokens
+   * without a matching variable are left as they are. Variable values are
+   * never logged (they may be secrets).
    *
    * @example N/A -- private package-body unit, not callable outside arw_exec_api;
    *           see execute_endpoint's runnable example, which exercises this indirectly.
    *
-   * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   #25 (Fase 1 - path/form params and {{var}} substitution)
    *
    * @author  Angel Flores (Developer)
-   * @created September 13, 2026
+   * @created October 23, 2026
    *
-   * @param  p_endpoint_id  Endpoint to check
+   * @param  p_text            Text holding {{var}} tokens (URL part, header value or body)
+   * @param  p_environment_id  Environment whose variables are applied
+   * @param  p_url_encode_yn   Y to url-encode the substituted values (URL parts)
+   * @return clob              Text with the known tokens replaced
    */
-  procedure reject_unsupported_params(
-      p_endpoint_id                             in arw_endpoint_params.endpoint_id%type
+  function substitute_variables(
+      p_text                                    in clob
+    , p_environment_id                          in arw_environments.environment_id%type
+    , p_url_encode_yn                           in varchar2
   )
+  return clob
   is
-    l_scope         logger_logs.scope%type := gc_scope_prefix || 'reject_unsupported_params';
-    l_params        logger.tab_param;
-    l_unsupported_n pls_integer;
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'substitute_variables';
+    l_params logger.tab_param;
+    l_text   clob := p_text;
   begin
-    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.append_param(l_params, 'p_environment_id', p_environment_id);
+    logger.append_param(l_params, 'p_url_encode_yn', p_url_encode_yn);
     logger.log('START', l_scope, null, l_params);
 
-    select count(*)
-      into l_unsupported_n
-      from arw_endpoint_params
-     where endpoint_id = p_endpoint_id
-       and active_yn = 'Y'
-       and param_kind_code in ('path', 'form');
-
-    if l_unsupported_n > 0 then
-      raise_application_error(
-          gc_err_param_kind_not_implemented
-        , 'path/form parameters are not yet substituted by arw_exec_api (endpoint_id=' || p_endpoint_id
-          || '); only query parameters are applied in Phase 0.'
-      );
+    if l_text is null or instr(l_text, '{{') = 0 then
+      logger.log('END - no tokens', l_scope, null, l_params);
+      return l_text;
     end if;
 
+    for l_rec in (
+      select v.var_name                                    as var_name
+           , v.var_value                                   as var_value
+        from arw_env_variables v
+       where v.environment_id = p_environment_id
+         and v.active_yn = 'Y'
+      union all
+      select 'base_url'                                    as var_name
+           , e.base_url                                    as var_value
+        from arw_environments e
+       where e.environment_id = p_environment_id
+    )
+    loop
+      l_text := replace(
+                    l_text
+                  , '{{' || l_rec.var_name || '}}'
+                  , case
+                      when p_url_encode_yn = 'Y' and l_rec.var_name != 'base_url' then apex_util.url_encode(l_rec.var_value)
+                      else l_rec.var_value
+                    end
+                );
+    end loop;
+
     logger.log('END', l_scope, null, l_params);
+
+    return l_text;
   exception
     when others then
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
-  end reject_unsupported_params;
+  end substitute_variables;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: apply_path_params (private)
+  -- ===========================================================================
+  /**
+   * Substitutes the endpoint's active path parameters into its URL path.
+   * Accepts the three placeholder styles found in imported collections:
+   * {{name}}, {name} and :name (Postman). A path parameter whose value is
+   * null fails loudly instead of sending a request with a literal token.
+   *
+   * @example N/A -- private package-body unit, not callable outside arw_exec_api;
+   *           see execute_endpoint's runnable example, which exercises this indirectly.
+   *
+   * @issue   #25 (Fase 1 - path/form params and {{var}} substitution)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 23, 2026
+   *
+   * @param  p_endpoint_id     Endpoint whose path parameters are applied
+   * @param  p_url_path        URL path holding the placeholders
+   * @param  p_environment_id  Environment whose {{var}} tokens may feed a parameter value
+   * @return varchar2          URL path with every path parameter substituted (url-encoded)
+   */
+  function apply_path_params(
+      p_endpoint_id                             in arw_endpoint_params.endpoint_id%type
+    , p_url_path                                in arw_endpoints.url_path%type
+    , p_environment_id                          in arw_environments.environment_id%type
+  )
+  return varchar2
+  is
+    l_scope    logger_logs.scope%type := gc_scope_prefix || 'apply_path_params';
+    l_params   logger.tab_param;
+    l_url_path varchar2(4000 char) := p_url_path;
+    l_value    varchar2(4000 char);
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.log('START', l_scope, null, l_params);
+
+    for l_rec in (
+      select p.param_name                                  as param_name
+           , p.param_value                                 as param_value
+        from arw_endpoint_params p
+       where p.endpoint_id = p_endpoint_id
+         and p.active_yn = 'Y'
+         and p.param_kind_code = 'path'
+       order by p.param_id
+    )
+    loop
+      l_value := substitute_variables(
+                     p_text                     => l_rec.param_value
+                   , p_environment_id           => p_environment_id
+                   , p_url_encode_yn            => 'N'
+                 );
+
+      if l_value is null or instr(l_value, '{{') > 0 then
+        raise_application_error(gc_err_param_unresolved, 'Path parameter "' || l_rec.param_name || '" has no value.');
+      end if;
+
+      l_value    := apex_util.url_encode(l_value);
+      l_url_path := replace(l_url_path, '{{' || l_rec.param_name || '}}', l_value);
+      l_url_path := replace(l_url_path, '{' || l_rec.param_name || '}', l_value);
+      l_url_path := regexp_replace(l_url_path, ':' || l_rec.param_name || '(/|$)', l_value || '\1');
+    end loop;
+
+    logger.log('END', l_scope, null, l_params);
+
+    return l_url_path;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end apply_path_params;
 
 
 
@@ -131,21 +232,25 @@ as
   -- ===========================================================================
   /**
    * Builds the "?a=1&b=2" query string from the endpoint's active query
-   * parameters, url-encoded via apex_util.url_encode.
+   * parameters, url-encoded via apex_util.url_encode. {{var}} tokens in a
+   * value are resolved from the environment first.
    *
    * @example N/A -- private package-body unit, not callable outside arw_exec_api;
    *           see execute_endpoint's runnable example, which exercises this indirectly.
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   #25 (Fase 1 - {{var}} substitution)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
    *
-   * @param  p_endpoint_id  Endpoint whose query parameters are read
-   * @return varchar2       Query string starting with "?"; null when there are none
+   * @param  p_endpoint_id     Endpoint whose query parameters are read
+   * @param  p_environment_id  Environment whose {{var}} tokens are applied
+   * @return varchar2          Query string starting with "?"; null when there are none
    */
   function build_query_string(
       p_endpoint_id                             in arw_endpoint_params.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type
   )
   return varchar2
   is
@@ -168,10 +273,18 @@ as
     loop
       l_query_string := l_query_string
                          || case when l_query_string is null then '?' else '&' end
-                         || apex_util.url_encode(l_rec.param_name) || '=' || apex_util.url_encode(l_rec.param_value);
+                         || apex_util.url_encode(l_rec.param_name) || '='
+                         || apex_util.url_encode(
+                                substitute_variables(
+                                    p_text              => l_rec.param_value
+                                  , p_environment_id    => p_environment_id
+                                  , p_url_encode_yn     => 'N'
+                                )
+                            );
     end loop;
 
-    logger.append_param(l_params, 'l_query_string', l_query_string);
+    -- Not logged: values may come from secret environment variables
+    logger.append_param(l_params, 'query_string_length', length(l_query_string));
     logger.log('END', l_scope, null, l_params);
 
     return l_query_string;
@@ -193,23 +306,29 @@ as
   -- ===========================================================================
   /**
    * Reads the endpoint's active request body template and content_type, if
-   * one is configured. o_body/o_content_type are left null when the
-   * endpoint has no body (e.g. a GET).
+   * one is configured, with {{var}} tokens resolved from the environment.
+   * When there is no body but the endpoint has active form parameters, the
+   * body is built from them as application/x-www-form-urlencoded.
+   * o_body/o_content_type are left null when the endpoint has neither
+   * (e.g. a GET).
    *
    * @example N/A -- private package-body unit, not callable outside arw_exec_api;
    *           see execute_endpoint's runnable example, which exercises this indirectly.
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   #25 (Fase 1 - form params and {{var}} substitution)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
    *
-   * @param  p_endpoint_id   Endpoint to read the body for
-   * @param  o_body          Body template, {{var}} tokens not yet substituted
-   * @param  o_content_type  Content-Type configured for the body
+   * @param  p_endpoint_id     Endpoint to read the body for
+   * @param  p_environment_id  Environment whose {{var}} tokens are applied
+   * @param  o_body            Body to send, tokens substituted
+   * @param  o_content_type    Content-Type configured for the body
    */
   procedure get_body(
       p_endpoint_id                             in arw_request_bodies.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type
     , o_body                                    out clob
     , o_content_type                            out arw_request_bodies.content_type%type
   )
@@ -221,18 +340,49 @@ as
     logger.log('START', l_scope, null, l_params);
 
     begin
-      select body_template
-           , content_type
+      select b.body_template                               as body_template
+           , b.content_type                                as content_type
         into o_body
            , o_content_type
-        from arw_request_bodies
-       where endpoint_id = p_endpoint_id
-         and active_yn = 'Y';
+        from arw_request_bodies b
+       where b.endpoint_id = p_endpoint_id
+         and b.active_yn = 'Y';
     exception
       when no_data_found then
         o_body         := null;
         o_content_type := null;
     end;
+
+    if o_body is null then
+      for l_rec in (
+        select p.param_name                                as param_name
+             , p.param_value                               as param_value
+          from arw_endpoint_params p
+         where p.endpoint_id = p_endpoint_id
+           and p.active_yn = 'Y'
+           and p.param_kind_code = 'form'
+         order by p.param_id
+      )
+      loop
+        o_body := o_body
+                  || case when o_body is not null then '&' end
+                  || apex_util.url_encode(l_rec.param_name) || '='
+                  || apex_util.url_encode(
+                         substitute_variables(
+                             p_text                     => l_rec.param_value
+                           , p_environment_id           => p_environment_id
+                           , p_url_encode_yn            => 'N'
+                         )
+                     );
+        o_content_type := 'application/x-www-form-urlencoded';
+      end loop;
+    else
+      o_body := substitute_variables(
+                    p_text                              => o_body
+                  , p_environment_id                    => p_environment_id
+                  , p_url_encode_yn                     => 'N'
+                );
+    end if;
 
     logger.log('END', l_scope, null, l_params);
   exception
@@ -274,12 +424,14 @@ as
    * @created September 13, 2026
    *
    * @param  p_endpoint_id            Endpoint whose static headers are applied
+   * @param  p_environment_id         Environment whose {{var}} tokens are resolved in header values
    * @param  p_credential_static_id   apex_credential static ID that will be passed to make_rest_request; null means no auth
    * @param  p_content_type           Content-Type to add when the body needs one and no header already sets it
    * @return clob                     Redacted "name: value" summary of every header actually sent
    */
   function apply_request_headers(
       p_endpoint_id                             in arw_endpoint_headers.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type
     , p_credential_static_id                    in arw_credentials.apex_credential_static_id%type
     , p_content_type                            in arw_request_bodies.content_type%type
   )
@@ -309,7 +461,11 @@ as
     loop
       l_header_idx := l_header_idx + 1;
       apex_web_service.g_request_headers(l_header_idx).name  := l_rec.header_name;
-      apex_web_service.g_request_headers(l_header_idx).value := l_rec.header_value;
+      apex_web_service.g_request_headers(l_header_idx).value := substitute_variables(
+                                                                    p_text              => l_rec.header_value
+                                                                  , p_environment_id    => p_environment_id
+                                                                  , p_url_encode_yn     => 'N'
+                                                                );
 
       if lower(l_rec.header_name) = 'content-type' then
         l_has_ct := true;
@@ -456,7 +612,14 @@ as
    * plain failed call; execute_endpoint only raises for configuration
    * problems (endpoint/environment not found, environment from a different
    * collection, an unimplemented engine/param kind, or a failing
-   * preflight).
+   * preflight). A call refused by the preflight is still recorded (status
+   * error, no HTTP status, the ORA-20923 text in response_body_clob) before
+   * ORA-20923 is raised, so the History shows the blocked attempt.
+   *
+   * An endpoint whose url_path is a full http(s) URL is sent as written:
+   * no base_url is prepended, and p_environment_id may be null (a quick
+   * test needs no environment). When an environment is given its
+   * {{var}} tokens still resolve. A relative url_path needs one.
    *
    * @example
    * set serveroutput on
@@ -472,12 +635,13 @@ as
    * /
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
+   * @issue   #25 (Phase 1 - record preflight-refused attempts, full error stack)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
    *
    * @param  p_endpoint_id     Endpoint to execute
-   * @param  p_environment_id  Environment to resolve base_url/host against
+   * @param  p_environment_id  Environment to resolve base_url and {{var}} tokens against; may be null for a full-URL endpoint
    * @return arw_executions.execution_id%type  Identifier of the history row written
    */
   function execute_endpoint(
@@ -493,17 +657,19 @@ as
     l_credential_id          arw_endpoints.credential_id%type;
     l_credential_static_id   arw_credentials.apex_credential_static_id%type;
     l_http_method            arw_endpoints.http_method%type;
-    l_url_path               arw_endpoints.url_path%type;
+    l_url_path               varchar2(4000 char);
     l_timeout_secs           arw_endpoints.timeout_secs%type;
     l_engine_code            arw_endpoints.engine_code%type;
 
     l_environment_collection_id arw_environments.collection_id%type;
     l_base_url                  arw_environments.base_url%type;
 
-    l_host             varchar2(1000 char);
-    l_preflight_checks arw_preflight_api.t_check_tab;
+    l_host              varchar2(1000 char);
+    l_preflight_checks  arw_preflight_api.t_check_tab;
+    l_preflight_message varchar2(32767 char);
 
-    l_url             varchar2(2000 char);
+    l_url             varchar2(32767 char);
+    l_query_string    varchar2(4000 char);
     l_body            clob;
     l_content_type    arw_request_bodies.content_type%type;
     l_request_headers clob;
@@ -543,18 +709,26 @@ as
         raise_application_error(gc_err_endpoint_not_found, 'Endpoint not found: ' || p_endpoint_id);
     end;
 
-    begin
-      select collection_id
-           , base_url
-        into l_environment_collection_id
-           , l_base_url
-        from arw_environments
-       where environment_id = p_environment_id
-         and active_yn = 'Y';
-    exception
-      when no_data_found then
-        raise_application_error(gc_err_environment_not_found, 'Environment not found: ' || p_environment_id);
-    end;
+    if p_environment_id is not null then
+      begin
+        select collection_id
+             , rtrim(base_url, '/')
+          into l_environment_collection_id
+             , l_base_url
+          from arw_environments
+         where environment_id = p_environment_id
+           and active_yn = 'Y';
+      exception
+        when no_data_found then
+          raise_application_error(gc_err_environment_not_found, 'Environment not found: ' || p_environment_id);
+      end;
+    elsif arw_endpoint_api.is_absolute_url_yn(p_url => l_url_path) = 'N' then
+      raise_application_error(
+          gc_err_environment_not_found
+        , 'The URL ' || l_url_path || ' is a path, so it needs an environment with a base_url --'
+          || ' add one to the collection, or enter the full URL (https://...).'
+      );
+    end if;
 
     if l_environment_collection_id != l_endpoint_collection_id then
       raise_application_error(
@@ -567,9 +741,42 @@ as
       raise_application_error(gc_err_engine_not_implemented, 'Engine not yet implemented: ' || l_engine_code);
     end if;
 
-    reject_unsupported_params(p_endpoint_id => p_endpoint_id);
 
-    l_host := extract_host(p_url => l_base_url);
+    -- ===========================================================================
+    -- Resolve path parameters, then {{var}} tokens left in the path, then
+    -- append the query string. A full http(s) URL is used as written;
+    -- a path goes behind the environment's base_url.
+    -- ===========================================================================
+
+    l_url_path := apply_path_params(
+        p_endpoint_id                           => p_endpoint_id
+      , p_url_path                              => l_url_path
+      , p_environment_id                        => p_environment_id
+    );
+    -- ===========================================================================
+
+    l_url := case
+               when arw_endpoint_api.is_absolute_url_yn(p_url => l_url_path) = 'N' then l_base_url
+             end
+             || substitute_variables(
+                    p_text                              => l_url_path
+                  , p_environment_id                    => p_environment_id
+                  , p_url_encode_yn                     => 'Y'
+                );
+
+    l_query_string := build_query_string(
+                          p_endpoint_id                 => p_endpoint_id
+                        , p_environment_id              => p_environment_id
+                      );
+
+    if l_query_string is not null and instr(l_url, '?') > 0 then
+      -- The URL already carries a query string: join with an ampersand
+      l_query_string := chr(38) || substr(l_query_string, 2);
+    end if;
+
+    l_url := l_url || l_query_string;
+
+    l_host := extract_host(p_url => l_url);
 
 
     -- ===========================================================================
@@ -584,20 +791,38 @@ as
     -- ===========================================================================
 
     if arw_preflight_api.has_failures(p_checks => l_preflight_checks) = 'Y' then
-      raise_application_error(
-          gc_err_preflight_failed
-        , 'Preflight failed for host ' || l_host || ':' || chr(10)
-          || arw_preflight_api.format_failures(p_checks => l_preflight_checks)
+      l_preflight_message := 'Preflight failed for host ' || l_host || ':' || chr(10)
+                             || arw_preflight_api.format_failures(p_checks => l_preflight_checks);
+
+
+      -- =========================================================================
+      -- Record the refused attempt (no HTTP status, the root ORA- code in the
+      -- body) so History and Home show it, then refuse as before.
+      -- =========================================================================
+
+      l_execution_id := log_execution(
+          p_endpoint_id                         => p_endpoint_id
+        , p_environment_id                      => p_environment_id
+        , p_request_status_code                 => 'error'
+        , p_http_status_code                    => null
+        , p_elapsed_ms                          => null
+        , p_request_headers                     => null
+        , p_request_body                        => null
+        , p_response_headers                    => null
+        , p_response_body_clob                  => 'ORA' || gc_err_preflight_failed || ': ' || l_preflight_message
       );
+      -- =========================================================================
+
+      logger.append_param(l_params, 'l_execution_id', l_execution_id);
+      raise_application_error(gc_err_preflight_failed, l_preflight_message);
     end if;
 
     get_body(
         p_endpoint_id                           => p_endpoint_id
+      , p_environment_id                        => p_environment_id
       , o_body                                  => l_body
       , o_content_type                          => l_content_type
     );
-
-    l_url := l_base_url || l_url_path || build_query_string(p_endpoint_id => p_endpoint_id);
 
 
     -- ===========================================================================
@@ -613,6 +838,7 @@ as
 
     l_request_headers := apply_request_headers(
         p_endpoint_id                           => p_endpoint_id
+      , p_environment_id                        => p_environment_id
       , p_credential_static_id                  => l_credential_static_id
       , p_content_type                          => l_content_type
     );
@@ -640,12 +866,15 @@ as
       when others then
         l_end_cs               := dbms_utility.get_time;
         l_http_status_code     := null;
-        l_response_body        := sqlerrm;
+        -- The full error stack, not just sqlerrm: the root cause (e.g.
+        -- ORA-24247, ORA-29024) sits below the ORA-29273 wrapper, and
+        -- arw_execution_log_vw.error_code extracts it from this text.
+        l_response_body        := dbms_utility.format_error_stack;
         -- ORA-29273 is the generic HTTP-failure wrapper (DNS, refused,
         -- SSL, timeout, ...), not timeout-specific -- only the message
         -- text itself reliably says "timeout".
         l_request_status_code  := case
-                                     when lower(sqlerrm) like '%timeout%' then 'timeout'
+                                     when lower(l_response_body) like '%timeout%' then 'timeout'
                                      else 'error'
                                    end;
     end;

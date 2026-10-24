@@ -1,0 +1,352 @@
+page 300 (
+    name: Environments
+    alias: ENVIRONMENTS
+    title: Environments
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Environments hold the base URL and the variables (e.g. {{token}}) an endpoint is resolved against. The active environment name is shared by every collection -- executions use the collection's environment with that name. Use Set active to switch it.
+    }
+
+    region environmentsHeadSR (
+        advanced {
+            htmlDomId: environmentsHeadSR
+        }
+        name: Environments Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <div>
+                    <h1 class="arw-page-title">Environments</h1>
+                    <p class="arw-page-subtitle">base URL + variables per collection</p>
+                  </div>
+                  <span class="arw-chip arw-chip--info">Active environment: &ARW_ENV_NAME.</span>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 5
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region environmentsIR (
+        advanced {
+            htmlDomId: environmentsIR
+        }
+        name: Environments
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_vars as (
+                  select v.environment_id                                    as environment_id
+                       , count(1)                                            as variable_count
+                    from arw_env_variables v
+                   where v.active_yn = 'Y'
+                   group by v.environment_id
+                )
+                select e.environment_id                                    as environment_id
+                     , c.name                                              as collection_name
+                     , e.name                                              as name
+                     , e.base_url                                          as base_url
+                     , nvl(w.variable_count, 0)                            as variable_count
+                     , case
+                         when e.name = :ARW_ENV_NAME then 'Y'
+                         else 'N'
+                       end                                                 as is_active_yn
+                     , case
+                         when e.name = :ARW_ENV_NAME then null
+                         else 'Set active'
+                       end                                                 as set_active_label
+                  from arw_environments                    e
+                  join arw_collections                     c on c.collection_id = e.collection_id
+                  left join w_vars                           w on w.environment_id = e.environment_id
+                 where e.active_yn = 'Y'
+                   and c.active_yn = 'Y'
+                 order by c.name
+                     , e.name
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 310
+                items: {
+                    P310_ENVIRONMENT_ID: #ENVIRONMENT_ID#
+                }
+                clearCache: 310
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit environment"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No environments yet. Create one per collection (e.g. dev with its base URL).
+        }
+
+        column ENVIRONMENT_ID (
+            type: hidden
+            heading {
+                heading: Environment Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column COLLECTION_NAME (
+            type: plainText
+            heading {
+                heading: Collection
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-mono">#NAME#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column BASE_URL (
+            type: plainText
+            heading {
+                heading: Base URL
+            }
+            layout {
+                sequence: 40
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-mono">#BASE_URL#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column VARIABLE_COUNT (
+            type: plainText
+            heading {
+                heading: Variables
+                alignment: end
+            }
+            layout {
+                sequence: 50
+                columnAlignment: end
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column IS_ACTIVE_YN (
+            type: plainText
+            heading {
+                heading: Active
+                alignment: center
+            }
+            layout {
+                sequence: 60
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case IS_ACTIVE_YN/}{when Y/}<span class="arw-chip arw-chip--ok">Active</span>{otherwise/}{endcase/}
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column SET_ACTIVE_LABEL (
+            type: link
+            heading {
+                heading: Switch
+                alignment: center
+            }
+            layout {
+                sequence: 70
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    page: 300
+                    items: {
+                        P300_SET_ENV_NAME: #NAME#
+                    }
+                    request: SET_ACTIVE
+                }
+                linkText: #SET_ACTIVE_LABEL#
+                linkAttributes: class="arw-set-active" title="Make this the active environment"
+            }
+            source {
+                dataType: STRING
+            }
+            enableUsersTo {
+                sort: false
+                filter: false
+            }
+        )
+
+    )
+
+    region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
+        name: {params}
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P300_SET_ENV_NAME (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
+        label: Create
+        layout {
+            sequence: 10
+            region: @environmentsIR
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 310
+                clearCache: 310
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process set-active-environment (
+        name: Set Active Environment
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                :ARW_ENV_NAME     := :P300_SET_ENV_NAME;
+                :P300_SET_ENV_NAME := null;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SET_ACTIVE' and :P300_SET_ENV_NAME is not null
+                ```
+        }
+    )
+
+    dynamicAction refresh-on-dialog-close (
+        name: Refresh on Dialog Close
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @environmentsIR
+        }
+
+        action refresh-environments (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @environmentsIR
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)

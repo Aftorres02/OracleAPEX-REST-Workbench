@@ -3,8 +3,9 @@ create or replace package arw_endpoint_api
 as
 -- =============================================================================
 -- Package: arw_endpoint_api
--- Purpose: CRUD for endpoints and their headers, params and request body.
---          No UI yet -- see docs/base/implementation_plan.md section 4 (0.3).
+-- Purpose: CRUD for endpoints and their headers, params and request body,
+--          plus the display URL shown in the endpoint editor URL bar
+--          (page 210) -- see docs/base/implementation_plan.md section 4 (0.3).
 --
 -- =============================================================================
 
@@ -97,6 +98,19 @@ as
   procedure remove_body(
       p_endpoint_id                             in arw_request_bodies.endpoint_id%type
   );
+
+
+  function display_url(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type default null
+  )
+  return varchar2;
+
+
+  function is_absolute_url_yn(
+      p_url                                     in varchar2
+  )
+  return varchar2;
 
 
 end arw_endpoint_api;

@@ -6,6 +6,140 @@ as
 
   gc_err_not_found constant number := -20910;
 
+  gc_base_url_token constant varchar2(20 char) := '{{base_url}}';
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: is_absolute_url_yn
+  -- ===========================================================================
+  /**
+   * Tells whether an endpoint URL is a full http(s) URL, sent as written,
+   * rather than a path appended to the environment's {{base_url}}.
+   * Not instrumented with logger: reports and LOVs call it once per row.
+   *
+   * @example
+   * set serveroutput on
+   * begin
+   *   dbms_output.put_line(arw_endpoint_api.is_absolute_url_yn(
+   *       p_url                                => 'https://jsonplaceholder.typicode.com/users'
+   *   ));
+   * end;
+   * /
+   *
+   * @issue   #25 (Phase 1 - full ARW application)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 24, 2026
+   *
+   * @param p_url Endpoint URL or path as stored in arw_endpoints.url_path
+   * @return varchar2  Y when p_url starts with http:// or https://, N otherwise
+   */
+  function is_absolute_url_yn(
+      p_url                                     in varchar2
+  )
+  return varchar2
+  is
+  begin
+    return case
+             when regexp_like(trim(p_url), '^https?://', 'i') then 'Y'
+             else 'N'
+           end;
+  end is_absolute_url_yn;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: normalize_url_path (private)
+  -- ===========================================================================
+  /**
+   * Turns what the user typed in the URL field into what is stored:
+   *   - a full URL that starts with the base_url of one of the collection's
+   *     active environments keeps only the rest (https://api.x.com/users ->
+   *     /users), so the environment base is reused;
+   *   - any other full URL is kept as written (a quick test against any
+   *     server, no environment needed);
+   *   - a leading {{base_url}} token is dropped (it is implied) and a
+   *     relative path always starts with '/'.
+   *
+   * @example
+   * -- Private: exercised through create_endpoint / update_endpoint. With
+   * -- base_url https://jsonplaceholder.typicode.com on the collection,
+   * -- 'https://jsonplaceholder.typicode.com/users' is stored as '/users'.
+   *
+   * @issue   #25 (Phase 1 - full ARW application)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 24, 2026
+   *
+   * @param p_collection_id Collection whose environments are matched
+   * @param p_url_path URL or path as typed
+   * @return arw_endpoints.url_path%type  Value to store in arw_endpoints.url_path
+   */
+  function normalize_url_path(
+      p_collection_id                           in arw_endpoints.collection_id%type
+    , p_url_path                                in arw_endpoints.url_path%type
+  )
+  return arw_endpoints.url_path%type
+  is
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'normalize_url_path';
+    l_params logger.tab_param;
+    l_url    varchar2(4000 char) := trim(p_url_path);
+    l_next   varchar2(1 char);
+  begin
+    logger.append_param(l_params, 'p_collection_id', p_collection_id);
+    logger.append_param(l_params, 'p_url_path', p_url_path);
+    logger.log('START', l_scope, null, l_params);
+
+    if is_absolute_url_yn(p_url => l_url) = 'Y' then
+      -- Longest base first, so https://x.com/v2 wins over https://x.com
+      for l_rec in (
+        select rtrim(v.base_url, '/')                      as base_url
+          from arw_environments v
+         where v.collection_id = p_collection_id
+           and v.active_yn = 'Y'
+         order by length(v.base_url) desc
+      )
+      loop
+        l_next := substr(l_url, length(l_rec.base_url) + 1, 1);
+
+        if lower(substr(l_url, 1, length(l_rec.base_url))) = lower(l_rec.base_url)
+           and (l_next is null or l_next in ('/', '?', '#'))
+        then
+          l_url := substr(l_url, length(l_rec.base_url) + 1);
+          exit;
+        end if;
+      end loop;
+    end if;
+
+    if substr(l_url, 1, length(gc_base_url_token)) = gc_base_url_token then
+      l_url := substr(l_url, length(gc_base_url_token) + 1);
+    end if;
+
+    if is_absolute_url_yn(p_url => l_url) = 'N' and (l_url is null or substr(l_url, 1, 1) != '/') then
+      l_url := '/' || l_url;
+    end if;
+
+    logger.append_param(l_params, 'l_url', l_url);
+    logger.log('END', l_scope, null, l_params);
+
+    return l_url;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end normalize_url_path;
+
 
 
 
@@ -35,7 +169,7 @@ as
    * @param p_collection_id Collection this endpoint belongs to
    * @param p_name Display name of the endpoint
    * @param p_http_method HTTP verb of the request
-   * @param p_url_path Path relative to the active environment base_url
+   * @param p_url_path Path relative to the environment base_url, or a full URL (see normalize_url_path)
    * @param p_credential_id Credential to authenticate with; null when not needed
    * @param p_timeout_secs Call timeout, in seconds
    * @param p_runtime_target_code Target runtime: apex, job or autonomous
@@ -57,12 +191,18 @@ as
     l_scope       logger_logs.scope%type := gc_scope_prefix || 'create_endpoint';
     l_params      logger.tab_param;
     l_endpoint_id arw_endpoints.endpoint_id%type;
+    l_url_path    arw_endpoints.url_path%type;
   begin
     logger.append_param(l_params, 'p_collection_id', p_collection_id);
     logger.append_param(l_params, 'p_name', p_name);
     logger.append_param(l_params, 'p_http_method', p_http_method);
     logger.append_param(l_params, 'p_url_path', p_url_path);
     logger.log('START', l_scope, null, l_params);
+
+    l_url_path := normalize_url_path(
+                      p_collection_id                   => p_collection_id
+                    , p_url_path                        => p_url_path
+                  );
 
     insert
       into arw_endpoints (
@@ -79,7 +219,7 @@ as
            p_collection_id
          , p_name
          , p_http_method
-         , p_url_path
+         , l_url_path
          , p_credential_id
          , p_timeout_secs
          , p_runtime_target_code
@@ -133,7 +273,7 @@ as
    * @param p_endpoint_id Endpoint to update
    * @param p_name Display name of the endpoint
    * @param p_http_method HTTP verb of the request
-   * @param p_url_path Path relative to the active environment base_url
+   * @param p_url_path Path relative to the environment base_url, or a full URL (see normalize_url_path)
    * @param p_credential_id Credential to authenticate with; null when not needed
    * @param p_timeout_secs Call timeout, in seconds
    * @param p_runtime_target_code Target runtime: apex, job or autonomous
@@ -150,17 +290,36 @@ as
     , p_engine_code                             in arw_endpoints.engine_code%type
   )
   is
-    l_scope  logger_logs.scope%type := gc_scope_prefix || 'update_endpoint';
-    l_params logger.tab_param;
+    l_scope         logger_logs.scope%type := gc_scope_prefix || 'update_endpoint';
+    l_params        logger.tab_param;
+    l_collection_id arw_endpoints.collection_id%type;
+    l_url_path      arw_endpoints.url_path%type;
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
     logger.append_param(l_params, 'p_name', p_name);
+    logger.append_param(l_params, 'p_url_path', p_url_path);
     logger.log('START', l_scope, null, l_params);
+
+    begin
+      select e.collection_id                               as collection_id
+        into l_collection_id
+        from arw_endpoints e
+       where e.endpoint_id = p_endpoint_id
+         and e.active_yn = 'Y';
+    exception
+      when no_data_found then
+        raise_application_error(gc_err_not_found, 'Endpoint not found: ' || p_endpoint_id);
+    end;
+
+    l_url_path := normalize_url_path(
+                      p_collection_id                   => l_collection_id
+                    , p_url_path                        => p_url_path
+                  );
 
     update arw_endpoints
        set name                 = p_name
          , http_method          = p_http_method
-         , url_path             = p_url_path
+         , url_path             = l_url_path
          , credential_id        = p_credential_id
          , timeout_secs         = p_timeout_secs
          , runtime_target_code  = p_runtime_target_code
@@ -764,6 +923,100 @@ as
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
   end remove_body;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: display_url
+  -- ===========================================================================
+  /**
+   * Returns the URL shown in the endpoint editor URL bar: url_path plus
+   * '?k=v&k2=v2' built from the endpoint's active query parameters in
+   * param_id order, prefixed with '{{base_url}}' when url_path is relative.
+   * When p_environment_id is given, that '{{base_url}}' prefix is replaced
+   * by the environment's real base URL -- only base_url: other {{var}}
+   * tokens stay as written, since their values may be secret. Values are
+   * shown as stored (not url-encoded) -- this is a display string;
+   * arw_exec_api builds the real, encoded URL at execution time. Reads
+   * arw_endpoint_summary_vw.display_url, the single definition of this
+   * string, so reports and PL/SQL callers always agree.
+   *
+   * @example
+   * set serveroutput on
+   * declare
+   *   l_display_url varchar2(4000 char);
+   * begin
+   *   l_display_url := arw_endpoint_api.display_url(
+   *       p_endpoint_id                        => 1
+   *     , p_environment_id                     => 1
+   *   );
+   *   dbms_output.put_line('display_url = ' || l_display_url);
+   * end;
+   * /
+   *
+   * @issue   #25 (Phase 1 - full ARW application)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 23, 2026
+   *
+   * @param p_endpoint_id Endpoint whose display URL is built
+   * @param p_environment_id Environment whose base_url resolves the {{base_url}} prefix; null keeps the token
+   * @return varchar2  Display URL; null when the endpoint does not exist or is inactive
+   */
+  function display_url(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type default null
+  )
+  return varchar2
+  is
+    l_scope       logger_logs.scope%type := gc_scope_prefix || 'display_url';
+    l_params      logger.tab_param;
+    l_display_url varchar2(4000 char);
+    l_base_url    arw_environments.base_url%type;
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.append_param(l_params, 'p_environment_id', p_environment_id);
+    logger.log('START', l_scope, null, l_params);
+
+    begin
+      select s.display_url                                as display_url
+        into l_display_url
+        from arw_endpoint_summary_vw s
+       where s.endpoint_id = p_endpoint_id;
+    exception
+      when no_data_found then
+        l_display_url := null;
+    end;
+
+    if p_environment_id is not null and substr(l_display_url, 1, length(gc_base_url_token)) = gc_base_url_token then
+      begin
+        select rtrim(v.base_url, '/')                      as base_url
+          into l_base_url
+          from arw_environments v
+         where v.environment_id = p_environment_id
+           and v.active_yn = 'Y';
+
+        l_display_url := l_base_url || substr(l_display_url, length(gc_base_url_token) + 1);
+      exception
+        when no_data_found then
+          null;
+      end;
+    end if;
+
+    logger.append_param(l_params, 'l_display_url', l_display_url);
+    logger.log('END', l_scope, null, l_params);
+
+    return l_display_url;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end display_url;
 
 
 end arw_endpoint_api;

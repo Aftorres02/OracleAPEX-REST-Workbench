@@ -2,3 +2,5 @@
 -- Data files are re-runnable data scripts
 -- ex: @../data/data_my_table.sql
 @../data/arw_seed_phase0_endpoint.sql
+@../data/arw_seed_demo.sql
+@../data/arw_code_templates.sql

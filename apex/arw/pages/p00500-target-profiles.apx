@@ -1,0 +1,327 @@
+page 500 (
+    name: Target profiles
+    alias: TARGET-PROFILES
+    title: Target profiles
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: A target profile tells the code generator where the generated code will live: object prefix, target schema, tracing (none, APEX debug or Logger), auditing and instance type. The profile with the lowest id is the default.
+    }
+
+    region targetProfilesHeadSR (
+        advanced {
+            htmlDomId: targetProfilesHeadSR
+        }
+        name: Target Profiles Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <div>
+                    <h1 class="arw-page-title">Target profiles</h1>
+                    <p class="arw-page-subtitle">prefix · schema · tracing · audit · runtime</p>
+                  </div>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 5
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region targetProfilesIR (
+        advanced {
+            htmlDomId: targetProfilesIR
+        }
+        name: Target profiles
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_default as (
+                  select arw_target_profiles_api.default_profile_id          as target_profile_id
+                    from dual
+                )
+                select t.target_profile_id                                 as target_profile_id
+                     , t.name                                              as name
+                     , t.object_prefix                                     as object_prefix
+                     , t.target_schema                                     as target_schema
+                     , t.trace_mode_code                                   as trace_mode_code
+                     , t.audit_enabled_yn                                  as audit_enabled_yn
+                     , t.instance_type_code                                as instance_type_code
+                     , t.db_version                                        as db_version
+                     , t.apex_version                                      as apex_version
+                     , case
+                         when d.target_profile_id is not null then 'Y'
+                         else 'N'
+                       end                                                 as is_default_yn
+                  from arw_target_profiles                 t
+                  left join w_default                        d on d.target_profile_id = t.target_profile_id
+                 where t.active_yn = 'Y'
+                 order by t.target_profile_id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 510
+                items: {
+                    P510_TARGET_PROFILE_ID: #TARGET_PROFILE_ID#
+                }
+                clearCache: 510
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit target profile"></span>
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No target profiles yet. Create one so the code generator knows your prefix and tracing.
+        }
+
+        column TARGET_PROFILE_ID (
+            type: hidden
+            heading {
+                heading: Target Profile Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column IS_DEFAULT_YN (
+            type: plainText
+            heading {
+                heading: Default
+                alignment: center
+            }
+            layout {
+                sequence: 25
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case IS_DEFAULT_YN/}{when Y/}<span class="arw-chip arw-chip--info">Default</span>{otherwise/}{endcase/}
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column OBJECT_PREFIX (
+            type: plainText
+            heading {
+                heading: Object Prefix
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-mono">#OBJECT_PREFIX#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column TARGET_SCHEMA (
+            type: plainText
+            heading {
+                heading: Target Schema
+            }
+            layout {
+                sequence: 40
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-mono">#TARGET_SCHEMA#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column TRACE_MODE_CODE (
+            type: plainText
+            heading {
+                heading: Tracing
+            }
+            layout {
+                sequence: 50
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span class="arw-chip">#TRACE_MODE_CODE#</span>
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column AUDIT_ENABLED_YN (
+            type: plainText
+            heading {
+                heading: Audit
+                alignment: center
+            }
+            layout {
+                sequence: 60
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case AUDIT_ENABLED_YN/}{when Y/}<span class="arw-chip arw-chip--ok">yes</span>{otherwise/}<span class="arw-chip">no</span>{endcase/}
+                    ```
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column INSTANCE_TYPE_CODE (
+            type: plainText
+            heading {
+                heading: Instance
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column DB_VERSION (
+            type: plainText
+            heading {
+                heading: DB Version
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+        column APEX_VERSION (
+            type: plainText
+            heading {
+                heading: APEX Version
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: STRING
+            }
+        )
+
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
+        label: Create
+        layout {
+            sequence: 10
+            region: @targetProfilesIR
+            slot: RIGHT_OF_IR_SEARCH_BAR
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 510
+                clearCache: 510
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-dialog-close (
+        name: Refresh on Dialog Close
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @targetProfilesIR
+        }
+
+        action refresh-target-profiles (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @targetProfilesIR
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)

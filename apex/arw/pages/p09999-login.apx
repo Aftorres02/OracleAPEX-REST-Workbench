@@ -16,6 +16,9 @@ page 9999 (
     }
 
     region app-name (
+        advanced {
+            htmlDomId: app-name
+        }
         name: Login
         title: &APP_TITLE.
         type: staticContent
@@ -113,6 +116,9 @@ page 9999 (
 
     button login (
         buttonName: LOGIN
+        advanced {
+            htmlDomId: LOGIN
+        }
         label: Sign In
         layout {
             sequence: 40

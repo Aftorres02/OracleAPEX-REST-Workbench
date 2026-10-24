@@ -1,0 +1,10 @@
+appComputation init-arw-env-name (
+    itemName: ARW_ENV_NAME
+    execution {
+        sequence: 10
+        point: newSession
+    }
+    computation {
+        staticValue: dev
+    }
+)

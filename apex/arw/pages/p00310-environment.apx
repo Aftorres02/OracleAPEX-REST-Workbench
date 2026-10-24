@@ -1,0 +1,667 @@
+page 310 (
+    name: Environment
+    alias: ENVIRONMENT
+    title: Environment
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        width: 900
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: An environment is a named base URL for one collection plus its variables. Secret variables are shown masked; leave the mask untouched to keep the stored value. Deleting an environment only deactivates it.
+    }
+
+    region environmentForm (
+        advanced {
+            htmlDomId: environmentForm
+        }
+        name: Environment
+        type: form
+        source {
+            location: localDatabase
+            tableName: ARW_ENVIRONMENTS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+        }
+    )
+
+    region variablesIG (
+        advanced {
+            htmlDomId: variablesIG
+        }
+        name: Variables
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select v.variable_id                                       as variable_id
+                     , v.var_name                                          as var_name
+                     , case
+                         when v.is_secret_yn = 'Y' then '********'
+                         else v.var_value
+                       end                                                 as var_value
+                     , v.is_secret_yn                                      as is_secret_yn
+                  from arw_env_variables v
+                 where v.environment_id = :P310_ENVIRONMENT_ID
+                   and v.active_yn = 'Y'
+                 order by v.var_name
+                ```
+            pageItemsToSubmit: [
+                P310_ENVIRONMENT_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+        pagination {
+            type: scroll
+            showTotalCount: false
+        }
+        messages {
+            whenNoDataFound: No variables yet -- use Add Row (e.g. token, api_key).
+        }
+        toolbar {
+            controls: [
+                searchField
+                actionsMenu
+                resetButton
+            ]
+        }
+
+        savedReport PRIMARY (
+            visibility: primary
+            view {
+                default: grid
+            }
+
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    sequence: 0
+                }
+            )
+            displayColumn (
+                column: @VAR_NAME
+                layout {
+                    sequence: 1
+                }
+            )
+            displayColumn (
+                column: @VAR_VALUE
+                layout {
+                    sequence: 2
+                }
+            )
+            displayColumn (
+                column: @IS_SECRET_YN
+                layout {
+                    sequence: 3
+                }
+            )
+        )
+
+        column APEX$ROW_ACTION (
+            type: actionsMenu
+            layout {
+                sequence: 20
+            }
+        )
+
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 10
+            }
+        )
+
+        column VARIABLE_ID (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: VARIABLE_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column VAR_NAME (
+            type: textField
+            heading {
+                heading: Name
+                alignment: start
+            }
+            layout {
+                sequence: 40
+                columnAlignment: start
+            }
+            validation {
+                valueRequired: true
+                maxLength: 200
+            }
+            source {
+                databaseColumn: VAR_NAME
+                dataType: varchar2
+            }
+        )
+
+        column VAR_VALUE (
+            type: textField
+            heading {
+                heading: Value
+                alignment: start
+            }
+            layout {
+                sequence: 50
+                columnAlignment: start
+            }
+            validation {
+                maxLength: 4000
+            }
+            source {
+                databaseColumn: VAR_VALUE
+                dataType: varchar2
+            }
+        )
+
+        column IS_SECRET_YN (
+            type: switch
+            heading {
+                heading: Secret
+                alignment: center
+            }
+            layout {
+                sequence: 60
+                columnAlignment: center
+            }
+            source {
+                databaseColumn: IS_SECRET_YN
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: N
+            }
+        )
+
+    )
+
+    region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: REGION_POSITION_03
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P310_ENVIRONMENT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @environmentForm
+            slot: regionBody
+        }
+        source {
+            formRegion: @environmentForm
+            column: ENVIRONMENT_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P310_COLLECTION_ID (
+        type: selectList
+        label {
+            label: Collection
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.name                                              as display_value
+                     , c.collection_id                                     as return_value
+                  from arw_collections c
+                 where c.active_yn = 'Y'
+                 order by c.name
+                ```
+            displayNullValue: true
+            nullDisplayValue: &SELECT_LABEL.
+        }
+        layout {
+            sequence: 20
+            region: @environmentForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @environmentForm
+            column: COLLECTION_ID
+            dataType: number
+        }
+        readOnly {
+            type: itemIsNotNull
+            item: P310_ENVIRONMENT_ID
+        }
+        help {
+            inlineHelpText: An environment belongs to one collection; it cannot be moved later
+        }
+    )
+
+    pageItem P310_NAME (
+        type: textField
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @environmentForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+            valuePlaceholder: dev
+        }
+        validation {
+            valueRequired: true
+            maxLength: 200
+        }
+        source {
+            formRegion: @environmentForm
+            column: NAME
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: Use the same names across collections (dev, test, prod) so the active environment applies everywhere
+        }
+    )
+
+    pageItem P310_BASE_URL (
+        type: textField
+        label {
+            label: Base URL
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @environmentForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+            valuePlaceholder: https://api.example.com
+        }
+        validation {
+            valueRequired: true
+            maxLength: 1000
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        source {
+            formRegion: @environmentForm
+            column: BASE_URL
+            dataType: varchar2
+        }
+    )
+
+    button CANCEL (
+        buttonName: CANCEL
+        advanced {
+            htmlDomId: CANCEL
+        }
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttonsSR
+            slot: CLOSE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button DELETE (
+        buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttonsSR
+            slot: DELETE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P310_ENVIRONMENT_ID
+        }
+    )
+
+    button SAVE (
+        buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
+        label: Save
+        layout {
+            sequence: 30
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P310_ENVIRONMENT_ID
+        }
+    )
+
+    button CREATE (
+        buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
+        label: Create
+        layout {
+            sequence: 40
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P310_ENVIRONMENT_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @CANCEL
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process initialize-environment-form (
+        name: Initialize Environment Form
+        type: formInitialization
+        formRegion: @environmentForm
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+    process create-environment (
+        name: Create Environment
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                :P310_ENVIRONMENT_ID := arw_environments_api.create_environment(
+                                            p_collection_id        => :P310_COLLECTION_ID
+                                          , p_name                 => :P310_NAME
+                                          , p_base_url             => :P310_BASE_URL
+                                        );
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Environment created.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'CREATE'
+                ```
+        }
+    )
+
+    process save-environment (
+        name: Save Environment
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_environments_api.update_environment(
+                    p_environment_id       => :P310_ENVIRONMENT_ID
+                  , p_name                 => :P310_NAME
+                  , p_base_url             => :P310_BASE_URL
+                );
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Environment saved.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SAVE'
+                ```
+        }
+    )
+
+    process delete-environment (
+        name: Delete Environment
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_environments_api.deactivate_environment(
+                    p_environment_id       => :P310_ENVIRONMENT_ID
+                );
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Environment deleted.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    process save-variables (
+        name: Save Variables
+        type: executeCode
+        editableRegion: @variablesIG
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_var_value                       arw_env_variables.var_value%type := :VAR_VALUE;
+                  l_old_name                        arw_env_variables.var_name%type;
+                  l_old_value                       arw_env_variables.var_value%type;
+                  l_old_secret_yn                   arw_env_variables.is_secret_yn%type;
+                begin
+                  if :APEX$ROW_STATUS = 'D' then
+                    arw_environments_api.remove_variable(
+                        p_variable_id          => :VARIABLE_ID
+                    );
+                  else
+                    if :APEX$ROW_STATUS = 'U' then
+                      select v.var_name                                     as var_name
+                           , v.var_value                                    as var_value
+                           , v.is_secret_yn                                 as is_secret_yn
+                        into l_old_name
+                           , l_old_value
+                           , l_old_secret_yn
+                        from arw_env_variables v
+                       where v.variable_id = :VARIABLE_ID;
+
+                      -- A secret whose mask was left untouched keeps its stored value
+                      if l_old_secret_yn = 'Y' and l_var_value = '********' then
+                        l_var_value := l_old_value;
+                      end if;
+
+                      -- set_variable upserts by name, so a rename retires the old row first
+                      if l_old_name != :VAR_NAME then
+                        arw_environments_api.remove_variable(
+                            p_variable_id      => :VARIABLE_ID
+                        );
+                      end if;
+                    end if;
+
+                    :VARIABLE_ID := arw_environments_api.set_variable(
+                                        p_environment_id   => :P310_ENVIRONMENT_ID
+                                      , p_var_name         => :VAR_NAME
+                                      , p_var_value        => l_var_value
+                                      , p_is_secret_yn     => nvl(:IS_SECRET_YN, 'N')
+                                    );
+                  end if;
+                end;
+                ```
+        }
+        execution {
+            sequence: 40
+        }
+        serverSideCondition {
+            executionScope: forCreatedAndModifiedRows
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('CREATE', 'SAVE')
+                ```
+            executeCondition: once
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('CREATE', 'SAVE', 'DELETE')
+                ```
+        }
+    )
+
+)
