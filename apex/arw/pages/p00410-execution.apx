@@ -111,8 +111,8 @@ page 410 (
                       <span class="arw-chip">#EXECUTED_BY#</span>
                     </div>
                     <div class="arw-urlbar">#REQUEST_URL#</div>
-                    {if REQUEST_HEADERS/}<span class="arw-section-label">Request headers</span><pre class="arw-code arw-code--wrap">#REQUEST_HEADERS#</pre>{endif/}
-                    {if REQUEST_BODY/}<span class="arw-section-label">Request body</span><pre class="arw-code">#REQUEST_BODY#</pre>{endif/}
+                    {if REQUEST_HEADERS/}<span class="arw-section-label">Request headers</span><pre class="arw-code arw-code--wrap" data-lang="none">#REQUEST_HEADERS#</pre>{endif/}
+                    {if REQUEST_BODY/}<span class="arw-section-label">Request body</span><pre class="arw-code" data-lang="json">#REQUEST_BODY#</pre>{endif/}
                     ```
             }
             advanced {
@@ -216,6 +216,12 @@ page 410 (
                          when dbms_lob.getlength(w.response_body) > 20000 then 'Y'
                          else 'N'
                        end                                                 as body_truncated_yn
+                     , case
+                         when l.content_type like '%json%'                 then 'json'
+                         when l.content_type like '%xml%'
+                           or l.content_type like '%html%'                 then 'markup'
+                         else 'none'
+                       end                                                 as response_lang
                      , dbms_lob.substr(w.response_headers, 8000, 1)        as response_headers
                   from arw_execution_log_vw                l
                   join w_exec                              w on w.execution_id = l.execution_id
@@ -288,13 +294,13 @@ page 410 (
                     </div>
                     {case REQUEST_STATUS_CODE/}
                     {when success/}
-                    <pre class="arw-code">#RESPONSE_BODY#</pre>
+                    <pre class="arw-code" data-lang="#RESPONSE_LANG#">#RESPONSE_BODY#</pre>
                     {otherwise/}
                     <div class="arw-banner arw-banner--error">The call failed ({if ERROR_CODE/}#ERROR_CODE#{endif/}{if !ERROR_CODE/}#REQUEST_STATUS_CODE#{endif/}). Error text:</div>
-                    <pre class="arw-code arw-code--wrap">#RESPONSE_BODY#</pre>
+                    <pre class="arw-code arw-code--wrap" data-lang="none">#RESPONSE_BODY#</pre>
                     {endcase/}
                     {case BODY_TRUNCATED_YN/}{when Y/}<p class="arw-muted">Body cut at 20,000 characters.</p>{otherwise/}{endcase/}
-                    {if RESPONSE_HEADERS/}<span class="arw-section-label">Response headers</span><pre class="arw-code arw-code--wrap">#RESPONSE_HEADERS#</pre>{endif/}
+                    {if RESPONSE_HEADERS/}<span class="arw-section-label">Response headers</span><pre class="arw-code arw-code--wrap" data-lang="none">#RESPONSE_HEADERS#</pre>{endif/}
                     ```
             }
             advanced {
@@ -348,6 +354,13 @@ page 410 (
             type: hidden
             layout {
                 sequence: 100
+            }
+        )
+
+        column RESPONSE_LANG (
+            type: hidden
+            layout {
+                sequence: 105
             }
         )
 

@@ -1175,6 +1175,7 @@ page 210 (
                   l_file_url                                varchar2(4000 char);
                   l_download_url                            varchar2(4000 char);
                   l_preview                                 varchar2(32767 char);
+                  l_lang                                    varchar2(20 char);
                 begin
                   if :P210_EXECUTION_ID is null then
                     return null;
@@ -1186,8 +1187,14 @@ page 210 (
                            else x.response_body_clob
                          end                                                 as body_text
                        , x.response_is_binary_yn                             as response_is_binary_yn
+                       , case
+                           when x.response_body_clob is json                   then 'json'
+                           when dbms_lob.substr(x.response_body_clob, 1, 1) = '<' then 'markup'
+                           else 'none'
+                         end                                                 as lang
                     into l_body
                        , l_binary_yn
+                       , l_lang
                     from arw_executions x
                    where x.execution_id = :P210_EXECUTION_ID;
 
@@ -1234,7 +1241,8 @@ page 210 (
                            || chr(10) || '... [truncated -- showing the first ' || lc_max_chars || ' characters]';
                   end if;
 
-                  return '<pre class="arw-code arw-code--response">'
+                  -- arw-code.js adds the Copy button and the syntax colors
+                  return '<pre class="arw-code arw-code--response" data-lang="' || l_lang || '">'
                       || apex_escape.html_clob(p_string => l_body)
                       || '</pre>';
                 exception
@@ -1987,7 +1995,14 @@ page 210 (
                     return '<p class="arw-code-empty">Nothing was generated for this artifact.</p>';
                   end if;
 
-                  return '<pre class="arw-code arw-code--source">'
+                  -- arw-code.js adds the Copy button and the syntax colors
+                  return '<pre class="arw-code arw-code--source" data-lang="'
+                      || case
+                           when :P210_ARTIFACT_TYPE = 'curl'           then 'bash'
+                           when :P210_ARTIFACT_TYPE like 'apexlang%'   then 'apexlang'
+                           else 'plsql'
+                         end
+                      || '">'
                       || apex_escape.html_clob(p_string => l_code)
                       || '</pre>';
                 exception

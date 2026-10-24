@@ -2,3 +2,18 @@ file "css/arw.css" (
     mimeType: text/css
     charSet: utf-8
 )
+
+file "js/arw-code.js" (
+    mimeType: text/javascript
+    charSet: utf-8
+)
+
+file "lib/prism/prism.js" (
+    mimeType: text/javascript
+    charSet: utf-8
+)
+
+file "lib/prism/prism-vsc-dark-plus.css" (
+    mimeType: text/css
+    charSet: utf-8
+)

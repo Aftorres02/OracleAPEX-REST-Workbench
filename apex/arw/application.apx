@@ -35,8 +35,17 @@ app ARW (
         timestamp: DS
         timestampTimeZone: DS
     }
+    javaScript {
+        fileUrls: [
+            #APP_FILES#lib/prism/prism.js
+            #APP_FILES#js/arw-code.js
+        ]
+    }
     css {
-        fileUrls: #APP_FILES#css/arw.css
+        fileUrls: [
+            #APP_FILES#lib/prism/prism-vsc-dark-plus.css
+            #APP_FILES#css/arw.css
+        ]
     }
     security {
         runtimeApiUsage: [

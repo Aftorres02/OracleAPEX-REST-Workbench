@@ -244,8 +244,8 @@ page 800 (
                       <div class="arw-check__body">
                         <div class="arw-check__title">#CHECK_TITLE#</div>
                         <div class="arw-check__message">#CHECK_MESSAGE#</div>
-                        {if CORRECTIVE_ACTION/}<pre class="arw-code">#CORRECTIVE_ACTION#</pre>
-                        <div class="arw-check__actions"><button type="button" class="t-Button arw-copy-script">Copy script</button><button type="button" class="t-Button arw-recheck">Re-check</button></div>{endif/}
+                        {if CORRECTIVE_ACTION/}<pre class="arw-code" data-lang="plsql">#CORRECTIVE_ACTION#</pre>
+                        <div class="arw-check__actions"><button type="button" class="t-Button arw-recheck">Re-check</button></div>{endif/}
                         {if CREATE_CREDENTIAL_URL/}<div class="arw-check__actions"><a class="t-Button" href="#CREATE_CREDENTIAL_URL#">Create credential</a></div>{endif/}
                       </div>
                     </div>
@@ -468,46 +468,6 @@ page 800 (
             }
             execution {
                 sequence: 20
-                fireOnInit: false
-            }
-        )
-
-    )
-
-    dynamicAction copy-script (
-        name: Copy Script
-        execution {
-            sequence: 30
-            eventScope: dynamic
-        }
-        when {
-            event: click
-            selectionType: jQuerySelector
-            jquerySelector: .arw-copy-script
-        }
-
-        action copy-script-to-clipboard (
-            action: executeJsCode
-            settings {
-                jsCode:
-                    ```javascript
-                    var lScript = apex.jQuery(this.triggeringElement).closest('.arw-check').find('.arw-code').text();
-                    navigator.clipboard.writeText(lScript).then(
-                      function() {
-                        apex.message.showPageSuccess('Script copied to the clipboard.');
-                      },
-                      function() {
-                        apex.message.showErrors([{
-                            type: 'error'
-                          , location: 'page'
-                          , message: 'Could not copy the script -- select it and copy it manually.'
-                        }]);
-                      }
-                    );
-                    ```
-            }
-            execution {
-                sequence: 10
                 fireOnInit: false
             }
         )
