@@ -1,0 +1,425 @@
+page 910 (
+    name: Examples
+    alias: EXAMPLES
+    title: Examples
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Ready-to-send requests against jsonplaceholder.typicode.com, a free fake REST API. Click a card, press Send. They live in the Guide examples collection; Reset examples puts them back as they were.
+    }
+
+    region examplesHeadSR (
+        advanced {
+            htmlDomId: examplesHeadSR
+        }
+        name: Examples Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <h1 class="arw-page-title">Examples</h1>
+                </div>
+                <p class="arw-muted">Click a card, then press Send.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region basicsCR (
+        advanced {
+            htmlDomId: basicsCR
+        }
+        name: Basics
+        title: Basics
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.guide_example_id                                  as guide_example_id
+                     , g.title                                             as title
+                     , g.summary                                           as summary
+                     , s.endpoint_id                                       as endpoint_id
+                     , s.http_method                                       as http_method
+                     , s.display_url                                       as display_url
+                  from arw_guide_examples                  g
+                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
+                 where g.category_code = 'basics'
+                   and g.active_yn = 'Y'
+                 order by g.display_seq
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 2
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region sendingDataCR (
+        advanced {
+            htmlDomId: sendingDataCR
+        }
+        name: Sending data
+        title: Sending data
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.guide_example_id                                  as guide_example_id
+                     , g.title                                             as title
+                     , g.summary                                           as summary
+                     , s.endpoint_id                                       as endpoint_id
+                     , s.http_method                                       as http_method
+                     , s.display_url                                       as display_url
+                  from arw_guide_examples                  g
+                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
+                 where g.category_code = 'sending_data'
+                   and g.active_yn = 'Y'
+                 order by g.display_seq
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 2
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region variablesCR (
+        advanced {
+            htmlDomId: variablesCR
+        }
+        name: Variables
+        title: Variables
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.guide_example_id                                  as guide_example_id
+                     , g.title                                             as title
+                     , g.summary                                           as summary
+                     , s.endpoint_id                                       as endpoint_id
+                     , s.http_method                                       as http_method
+                     , s.display_url                                       as display_url
+                  from arw_guide_examples                  g
+                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
+                 where g.category_code = 'variables'
+                   and g.active_yn = 'Y'
+                 order by g.display_seq
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 2
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region preflightCR (
+        advanced {
+            htmlDomId: preflightCR
+        }
+        name: Preflight
+        title: Preflight
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.guide_example_id                                  as guide_example_id
+                     , g.title                                             as title
+                     , g.summary                                           as summary
+                     , s.endpoint_id                                       as endpoint_id
+                     , s.http_method                                       as http_method
+                     , s.display_url                                       as display_url
+                  from arw_guide_examples                  g
+                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
+                 where g.category_code = 'preflight'
+                   and g.active_yn = 'Y'
+                 order by g.display_seq
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 2
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    button RESET_EXAMPLES (
+        buttonName: RESET_EXAMPLES
+        advanced {
+            htmlDomId: RESET_EXAMPLES
+        }
+        label: Reset examples
+        layout {
+            sequence: 10
+            region: @examplesHeadSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: Put every example back as it was? Your changes to them are lost.
+            style: warning
+        }
+    )
+
+    process reset-examples (
+        name: Reset Examples
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_guide_api.install_examples;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Examples restored.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'RESET_EXAMPLES'
+                ```
+        }
+    )
+
+    branch back-to-examples (
+        name: Back To Examples
+        execution {
+            sequence: 10
+            point: afterProcessing
+        }
+        behavior {
+            type: pageOrUrl
+            target: {
+                page: 910
+            }
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'RESET_EXAMPLES'
+                ```
+        }
+    )
+
+)

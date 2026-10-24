@@ -485,6 +485,24 @@ versión mínima de la Fase 0.
 >   como ruta. El preflight revisa el host de la URL que realmente se llama.
 > - También: todos los botones y regiones tienen Static ID (sin él, el
 >   JS de la página no encontraba `#SEND`, `tabsSR`, etc.).
+>
+> **Actualización (2026-10-24, issue #25): guía dentro de la app** — menú
+> **Guide** (después de Home) con dos páginas, poco texto y énfasis en
+> ejemplos que se abren listos para pulsar Send:
+>
+> - **900 Quick start**: 3 pasos (New request → pegar URL → Send), botones
+>   *New request* / *Open a ready request* y tarjetas "Explore the app"
+>   (Examples, Response + perfil + código, Environments, History, Import,
+>   Preflight).
+> - **910 Examples**: 10 ejemplos en tarjetas por categoría (Basics,
+>   Sending data, Variables, Preflight) contra jsonplaceholder (el único
+>   host con ACL); el de httpbin.org se bloquea a propósito en el
+>   preflight. *Reset examples* los restaura.
+> - Backend: tabla `arw_guide_examples` (upgrade
+>   `release/code/guide_upgrade.sql`), `arw_guide_api.install_examples`
+>   (idempotente; crea la colección "Guide examples" con su ambiente dev,
+>   la variable `api_key` y la subcolección "No environment") y
+>   `data/arw_seed_guide.sql`.
 
 ### Fase 2 — Import de colecciones Postman
 

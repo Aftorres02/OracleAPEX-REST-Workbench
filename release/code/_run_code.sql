@@ -11,3 +11,6 @@
 
 -- Issue #25: full-URL endpoints run without an environment (idempotent).
 @code/absolute_url_upgrade.sql
+
+-- Issue #25: in-app Guide examples table (idempotent).
+@code/guide_upgrade.sql

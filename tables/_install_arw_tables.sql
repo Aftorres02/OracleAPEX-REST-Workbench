@@ -27,4 +27,7 @@ prompt --- Generation ---
 @arw_code_templates.sql
 @arw_generated_artifacts.sql
 
+prompt --- Guide ---
+@arw_guide_examples.sql
+
 prompt --- ARW tables installed. Continue with triggers/_install_arw_triggers.sql ---

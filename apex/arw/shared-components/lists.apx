@@ -120,6 +120,66 @@ list navigation-menu (
         }
     )
 
+    entry guide (
+        label: Guide
+        icon {
+            imageIconCssClasses: fa-graduation-cap
+        }
+        layout {
+            sequence: 15
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                900
+                910
+            ]
+        }
+        link {
+            target: {
+                page: 900
+            }
+        }
+    )
+
+    entry quick-start (
+        label: Quick start
+        layout {
+            sequence: 10
+            parentEntry: @guide
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                900
+            ]
+        }
+        link {
+            target: {
+                page: 900
+            }
+        }
+    )
+
+    entry examples (
+        label: Examples
+        layout {
+            sequence: 20
+            parentEntry: @guide
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                910
+            ]
+        }
+        link {
+            target: {
+                page: 910
+            }
+        }
+    )
+
     entry collections (
         label: Collections
         icon {

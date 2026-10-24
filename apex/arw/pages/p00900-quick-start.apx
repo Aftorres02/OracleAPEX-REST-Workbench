@@ -1,0 +1,363 @@
+page 900 (
+    name: Quick Start
+    alias: QUICK-START
+    title: Quick start
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Three steps to call any REST API, plus a card for each area of the app. Every card opens the page or a ready-to-send example.
+    }
+
+    region quickStartHeadSR (
+        advanced {
+            htmlDomId: quickStartHeadSR
+        }
+        name: Quick Start Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <h1 class="arw-page-title">Quick start</h1>
+                </div>
+                <p class="arw-muted">Call any REST API in three steps.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region stepsCR (
+        advanced {
+            htmlDomId: stepsCR
+        }
+        name: Steps
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1                                                   as step_no
+                     , '1. New request'                                    as title
+                     , 'Top bar, next to Environment.'                     as body
+                     , 'fa-plus'                                           as icon
+                  from dual
+                 union all
+                select 2                                                   as step_no
+                     , '2. Paste a URL'                                    as title
+                     , 'https://jsonplaceholder.typicode.com/users'        as body
+                     , 'fa-link'                                           as icon
+                  from dual
+                 union all
+                select 3                                                   as step_no
+                     , '3. Send'                                           as title
+                     , 'The response shows up under the request.'          as body
+                     , 'fa-paper-plane'                                    as icon
+                  from dual
+                 order by 1
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: STEP_NO
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        body {
+            advancedFormatting: false
+            column: BODY
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: ICON
+            iconPosition: start
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+    )
+
+    region tryItSR (
+        advanced {
+            htmlDomId: tryItSR
+        }
+        name: Try It
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region exploreHeadSR (
+        advanced {
+            htmlDomId: exploreHeadSR
+        }
+        name: Explore Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <span class="arw-section-label arw-section-label--divided">Explore the app</span>
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region exploreCR (
+        advanced {
+            htmlDomId: exploreCR
+        }
+        name: Explore
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_example as (
+                  select min(g.endpoint_id)                                as endpoint_id
+                    from arw_guide_examples g
+                   where g.example_code = 'basics_full_url'
+                     and g.active_yn = 'Y'
+                ), w_cards as (
+                  select 10                                                as card_seq
+                       , 'Examples'                                        as title
+                       , 'Ten ready requests: GET, POST, params, variables.' as body
+                       , 'fa-flask'                                        as icon
+                       , apex_page.get_url(p_page => 910)                  as target_url
+                    from dual
+                   union all
+                  select 20                                                as card_seq
+                       , 'Response, data profile and code'                 as title
+                       , 'After a Send: Derive data profile, then the Code tab writes PL/SQL or APEXlang.' as body
+                       , 'fa-code'                                         as icon
+                       , apex_page.get_url(
+                             p_page        => 210
+                           , p_clear_cache => '210'
+                           , p_items       => 'P210_ENDPOINT_ID'
+                           , p_values      => to_char(x.endpoint_id)
+                         )                                                 as target_url
+                    from w_example x
+                   where x.endpoint_id is not null
+                   union all
+                  select 30                                                as card_seq
+                       , 'Environments'                                    as title
+                       , 'One base URL and {{variables}} per environment (dev, prod).' as body
+                       , 'fa-server'                                       as icon
+                       , apex_page.get_url(p_page => 300)                  as target_url
+                    from dual
+                   union all
+                  select 40                                                as card_seq
+                       , 'History'                                         as title
+                       , 'Every call, with its request and response.'      as body
+                       , 'fa-history'                                      as icon
+                       , apex_page.get_url(p_page => 400)                  as target_url
+                    from dual
+                   union all
+                  select 50                                                as card_seq
+                       , 'Import'                                          as title
+                       , 'Bring in a Postman collection.'                  as body
+                       , 'fa-upload'                                       as icon
+                       , apex_page.get_url(p_page => 700)                  as target_url
+                    from dual
+                   union all
+                  select 60                                                as card_seq
+                       , 'Preflight'                                       as title
+                       , 'Why a host is blocked, and the script that fixes it.' as body
+                       , 'fa-check-circle-o'                               as icon
+                       , apex_page.get_url(p_page => 800)                  as target_url
+                    from dual
+                )
+                select c.card_seq                                          as card_seq
+                     , c.title                                             as title
+                     , c.body                                              as body
+                     , c.icon                                              as icon
+                     , c.target_url                                        as target_url
+                  from w_cards c
+                 order by c.card_seq
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: CARD_SEQ
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        body {
+            advancedFormatting: false
+            column: BODY
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: ICON
+            iconPosition: start
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+
+        action open-card (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: &TARGET_URL.
+            }
+        )
+    )
+
+    region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
+        name: {params}
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P900_EXAMPLE_ENDPOINT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button NEW_REQUEST (
+        buttonName: NEW_REQUEST
+        advanced {
+            htmlDomId: NEW_REQUEST
+        }
+        label: New request
+        layout {
+            sequence: 10
+            region: @tryItSR
+            slot: PREVIOUS
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                clearCache: 210
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button TRY_EXAMPLE (
+        buttonName: TRY_EXAMPLE
+        advanced {
+            htmlDomId: TRY_EXAMPLE
+        }
+        label: Open a ready request
+        layout {
+            sequence: 20
+            region: @tryItSR
+            slot: PREVIOUS
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                items: {
+                    P210_ENDPOINT_ID: &P900_EXAMPLE_ENDPOINT_ID.
+                }
+                clearCache: 210
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P900_EXAMPLE_ENDPOINT_ID
+        }
+    )
+
+    computation compute-example-endpoint-id (
+        itemName: P900_EXAMPLE_ENDPOINT_ID
+        execution {
+            sequence: 10
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select min(g.endpoint_id)                                  as endpoint_id
+                  from arw_guide_examples g
+                 where g.example_code = 'basics_full_url'
+                   and g.active_yn = 'Y'
+                ```
+        }
+    )
+
+)

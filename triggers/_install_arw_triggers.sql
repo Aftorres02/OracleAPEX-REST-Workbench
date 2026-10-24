@@ -22,5 +22,6 @@
 @arw_target_profiles_compound_trg.sql
 @arw_code_templates_compound_trg.sql
 @arw_generated_artifacts_compound_trg.sql
+@arw_guide_examples_compound_trg.sql
 
 prompt --- ARW triggers installed ---
