@@ -462,6 +462,29 @@ versión mínima de la Fase 0.
 > generador no compila aquí (el esquema no tiene EXECUTE sobre
 > `DBMS_CLOUD`); la ruta `job` del código generado deja `gc_app_id` /
 > `gc_app_user` como TODO; sigue sin Error Handling Function global.
+>
+> **Actualización (2026-10-24, issue #25): flujo tipo Postman en el editor
+> (página 210)**, tras la primera prueba en el navegador.
+>
+> - **New request** (barra superior) abre el editor vacío: método + URL +
+>   Send. Sin colección, la petición se guarda en la colección **Drafts**
+>   (`arw_collections_api.drafts_collection_id`, se crea sola); se mueve a
+>   otra colección desde la pestaña Settings.
+> - **Send = guardar + enviar** en un solo submit (URL, Params, Auth,
+>   Headers, Body, Settings); **Save** solo guarda. Se quitaron los Save
+>   sueltos de Auth/Body/IGs. El nombre es opcional (por defecto
+>   `MÉTODO + URL`).
+> - Barra de petición: método, URL editable, selector de ambiente (fija
+>   `ARW_ENV_NAME`), Send, Save; debajo, la URL resuelta. Pestañas de la
+>   petición: Params, Auth, Headers, Body, Settings; debajo, Response y
+>   Code.
+> - **URL completa**: si empieza por `http(s)://` se envía tal cual, sin
+>   `{{base_url}}` ni ambiente (`arw_executions.environment_id` ahora
+>   admite null — `release/code/absolute_url_upgrade.sql`). Una URL pegada
+>   que empieza por el `base_url` de un ambiente de la colección se guarda
+>   como ruta. El preflight revisa el host de la URL que realmente se llama.
+> - También: todos los botones y regiones tienen Static ID (sin él, el
+>   JS de la página no encontraba `#SEND`, `tabsSR`, etc.).
 
 ### Fase 2 — Import de colecciones Postman
 

@@ -17,10 +17,10 @@ page 210 (
              * PAGE 210 -- ENDPOINT EDITOR
              * ==========================================================================
              *
-             * @description Client helpers for the endpoint editor: tab switching after
-             *              Send / Add sample, error reporting for the AJAX actions
-             *              (Send, Derive, Accept), Code-tab list highlight and the
-             *              .apx bundle selection summary.
+             * @description Client helpers for the endpoint editor: error reporting for
+             *              Send (page submit) and the AJAX actions (Add sample, Derive,
+             *              Accept), tab switching after Add sample, Code-tab list
+             *              highlight and the .apx bundle selection summary.
              * @author      ARW (agent D2)
              * @created     October 2026
              * @issue       PHASE1-25
@@ -34,7 +34,7 @@ page 210 (
               var MODULE_NAME = 'EndpointEditor';
 
               var CONFIG = {
-                  TABS_REGION: 'tabsSR'
+                  TABS_REGION: 'responseTabsSR'
                 , TAB_ID_PREFIX: '#SR_'
                 , RESPONSE_REGION: 'responseSR'
                 , PROFILE_REGION: 'profileSR'
@@ -167,6 +167,9 @@ page 210 (
                   // Tabs
                   activateTab: activateTab
 
+                  // Page load: error left by the last Send
+                , reportActionError: _reportActionError
+
                   // AJAX action callbacks
                 , afterSend: afterSend
                 , afterDerive: afterDerive
@@ -178,6 +181,10 @@ page 210 (
               };
 
             })(arw, apex.jQuery);
+            ```
+        executeWhenPageLoads:
+            ```javascript
+            arw.endpointEditor.reportActionError();
             ```
     }
     css {
@@ -194,7 +201,7 @@ page 210 (
         formAutoComplete: false
     }
     help {
-        helpText: Edit an endpoint (method, path, auth, headers, query/path params, body), send it from the database, collect response samples, derive and accept a data profile, and generate PL/SQL or APEXlang code for it.
+        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result, the derived data profile and the Code tab generates PL/SQL or APEXlang for it.
     }
 
     // =========================================================================
@@ -239,7 +246,7 @@ page 210 (
                          , p_items       => 'P200_COLLECTION_ID'
                          , p_values      => to_char(c.collection_id)
                        )                                                   as endpoints_url
-                     , coalesce(e.name, 'New endpoint')                    as endpoint_name
+                     , coalesce(e.name, 'New request')                     as endpoint_name
                      , coalesce(env.name, 'none')                          as environment_name
                   from dual                                d
                   left join arw_collections                c on c.collection_id = :P210_COLLECTION_ID
@@ -312,7 +319,7 @@ page 210 (
                 sequence: 40
             }
             columnFormatting {
-                htmlExpression: <div class="arw-topbar"><nav class="arw-crumbs" aria-label="Breadcrumb"><a href="#COLLECTIONS_URL#">Collections</a><span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span>{if COLLECTION_NAME/}<a href="#ENDPOINTS_URL#">#COLLECTION_NAME#</a><span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span><a href="#ENDPOINTS_URL#">Endpoints</a><span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span>{endif/}<span aria-current="page">#ENDPOINT_NAME#</span></nav><span class="arw-topbar__env">Environment: #ENVIRONMENT_NAME#</span></div>
+                htmlExpression: <div class="arw-topbar"><nav class="arw-crumbs" aria-label="Breadcrumb"><a href="#COLLECTIONS_URL#">Collections</a><span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span>{if COLLECTION_NAME/}<a href="#ENDPOINTS_URL#">#COLLECTION_NAME#</a>{endif/}{if !COLLECTION_NAME/}Drafts{endif/}<span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">#ENDPOINT_NAME#</span></nav></div>
             }
         )
 
@@ -325,11 +332,28 @@ page 210 (
 
     )
 
+    region requestSR (
+        advanced {
+            htmlDomId: requestSR
+        }
+        name: Request Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @editorSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
     region requestBarCR (
         advanced {
             htmlDomId: requestBarCR
         }
-        name: Request
+        name: URL Preview
         type: classicReport
         source {
             location: localDatabase
@@ -366,16 +390,15 @@ page 210 (
             ]
         }
         layout {
-            sequence: 20
+            sequence: 25
             parentRegion: @editorSR
             slot: SUB_REGIONS
         }
         appearance {
-            template: @/buttons-container
+            template: @/blank-with-attributes
             templateOptions: #DEFAULT#
             cssClasses: [
                 arw-plain
-                arw-editor__request
             ]
         }
         componentAppearance {
@@ -421,7 +444,7 @@ page 210 (
                 sequence: 20
             }
             columnFormatting {
-                htmlExpression: <div class="arw-requestbar"><span class="arw-chip arw-chip--method">#HTTP_METHOD#</span><span class="arw-urlbar arw-mono">#DISPLAY_URL#</span></div><div class="arw-muted arw-mono">#URL_NOTE#</div>
+                htmlExpression: <div class="arw-muted arw-mono">&rarr; #DISPLAY_URL#<span class="arw-crumbs__sep" aria-hidden="true">&middot;</span>#URL_NOTE#</div>
             }
         )
 
@@ -449,22 +472,22 @@ page 210 (
     )
 
     // -------------------------------------------------------------------------
-    // Tab: General
+    // Tab: Settings (the endpoint form; Method / URL live in the request bar)
     // -------------------------------------------------------------------------
 
     region endpointForm (
         advanced {
             htmlDomId: endpointForm
         }
-        name: General
-        title: General
+        name: Settings
+        title: Settings
         type: form
         source {
             location: localDatabase
             tableName: ARW_ENDPOINTS
         }
         layout {
-            sequence: 10
+            sequence: 50
             parentRegion: @tabsSR
             slot: SUB_REGIONS
         }
@@ -513,10 +536,6 @@ page 210 (
         appearance {
             template: @/blank-with-attributes
             templateOptions: #DEFAULT#
-        }
-        serverSideCondition {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
         }
     )
 
@@ -587,18 +606,13 @@ page 210 (
             ]
         }
         messages {
-            whenNoDataFound: No headers -- add one with Add Row, then Save.
+            whenNoDataFound: No headers -- add one with Add Row; Send or Save stores it.
         }
         toolbar {
             controls: [
                 searchField
                 actionsMenu
-                saveButton
             ]
-        }
-        serverSideCondition {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
         }
 
         savedReport PRIMARY (
@@ -747,7 +761,7 @@ page 210 (
             ]
         }
         layout {
-            sequence: 40
+            sequence: 10
             parentRegion: @tabsSR
             slot: SUB_REGIONS
         }
@@ -764,18 +778,13 @@ page 210 (
             ]
         }
         messages {
-            whenNoDataFound: No params -- add query, path or form params with Add Row, then Save.
+            whenNoDataFound: No params -- add query, path or form params with Add Row; Send or Save stores them.
         }
         toolbar {
             controls: [
                 searchField
                 actionsMenu
-                saveButton
             ]
-        }
-        serverSideCondition {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
         }
 
         savedReport PRIMARY (
@@ -969,7 +978,7 @@ page 210 (
         title: Body
         type: staticContent
         layout {
-            sequence: 50
+            sequence: 40
             parentRegion: @tabsSR
             slot: SUB_REGIONS
         }
@@ -977,32 +986,34 @@ page 210 (
             template: @/blank-with-attributes
             templateOptions: #DEFAULT#
         }
-        serverSideCondition {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
-        }
-    )
-
-    region bodyButtonsSR (
-        advanced {
-            htmlDomId: bodyButtonsSR
-        }
-        name: Body Buttons
-        type: staticContent
-        layout {
-            sequence: 10
-            parentRegion: @bodySR
-            slot: SUB_REGIONS
-        }
-        appearance {
-            template: @/buttons-container
-            templateOptions: #DEFAULT#
-        }
     )
 
     // -------------------------------------------------------------------------
     // Tab: Response (+ derived data profile)
     // -------------------------------------------------------------------------
+
+    region responseTabsSR (
+        advanced {
+            htmlDomId: responseTabsSR
+        }
+        name: Result Tabs
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/tabs-container
+            templateOptions: [
+                #DEFAULT#
+                t-TabsRegion-mod--simple
+            ]
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
 
     region responseSR (
         advanced {
@@ -1012,8 +1023,8 @@ page 210 (
         title: Response
         type: staticContent
         layout {
-            sequence: 60
-            parentRegion: @tabsSR
+            sequence: 10
+            parentRegion: @responseTabsSR
             slot: SUB_REGIONS
         }
         appearance {
@@ -1679,8 +1690,8 @@ page 210 (
         title: Code
         type: staticContent
         layout {
-            sequence: 70
-            parentRegion: @tabsSR
+            sequence: 20
+            parentRegion: @responseTabsSR
             slot: SUB_REGIONS
         }
         appearance {
@@ -2055,7 +2066,7 @@ page 210 (
                 ```
             displayExtraValues: false
             displayNullValue: true
-            nullDisplayValue: &SELECT_LABEL.
+            nullDisplayValue: - Drafts -
         }
         layout {
             sequence: 20
@@ -2064,21 +2075,17 @@ page 210 (
             alignment: left
         }
         appearance {
-            template: @/required-floating
+            template: @/optional-floating
             templateOptions: #DEFAULT#
             height: 1
-        }
-        validation {
-            valueRequired: true
         }
         source {
             formRegion: @endpointForm
             column: COLLECTION_ID
             dataType: number
         }
-        readOnly {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
+        help {
+            inlineHelpText: Change it and Save to move the request (e.g. out of Drafts)
         }
     )
 
@@ -2095,18 +2102,20 @@ page 210 (
             alignment: left
         }
         appearance {
-            template: @/required-floating
+            template: @/optional-floating
             templateOptions: #DEFAULT#
             width: 60
         }
         validation {
-            valueRequired: true
             maxLength: 200
         }
         source {
             formRegion: @endpointForm
             column: NAME
             dataType: varchar2
+        }
+        help {
+            inlineHelpText: Empty takes the method and URL (GET /users)
         }
     )
 
@@ -2124,7 +2133,7 @@ page 210 (
         }
         layout {
             sequence: 40
-            region: @endpointForm
+            region: @requestSR
             slot: regionBody
             alignment: left
             columnSpan: 2
@@ -2156,12 +2165,12 @@ page 210 (
         }
         layout {
             sequence: 50
-            region: @endpointForm
+            region: @requestSR
             slot: regionBody
             alignment: left
             startNewRow: false
             newColumn: true
-            columnSpan: 10
+            columnSpan: 8
         }
         appearance {
             template: @/required-floating
@@ -2182,7 +2191,56 @@ page 210 (
             dataType: varchar2
         }
         help {
-            inlineHelpText: A full URL (https://api.example.com/users) is sent as written. A path (/users) goes behind the environment's base_url -- a pasted full URL that starts with that base_url is saved as the path. Query params live in the Params tab.
+            inlineHelpText: A full URL is sent as written; a path (/users) goes behind the environment's base_url
+        }
+    )
+
+    pageItem P210_ENV_NAME (
+        type: selectList
+        label {
+            label: Environment
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select v.name                                              as display_value
+                     , v.name                                              as return_value
+                  from arw_environments v
+                 where v.collection_id = :P210_COLLECTION_ID
+                   and v.active_yn = 'Y'
+                 order by v.name
+                ```
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 55
+            region: @requestSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 2
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1                                                   as environment_exists
+                  from arw_environments v
+                 where v.collection_id = :P210_COLLECTION_ID
+                   and v.active_yn = 'Y'
+                ```
+        }
+        help {
+            inlineHelpText: Sets the active environment (base_url and {{variables}})
         }
     )
 
@@ -2513,8 +2571,14 @@ page 210 (
             region: @paramsSR
             slot: regionBody
         }
+        settings {
+            valueProtected: false
+        }
         security {
-            sessionStateProtection: checksumRequiredSessionLevel
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: UI state only: set by the Environment selector through itemsToReturn. Send never trusts it -- it resolves the environment from the collection and ARW_ENV_NAME, and arw_exec_api rejects an environment of another collection.
         }
     )
 
@@ -2620,7 +2684,7 @@ page 210 (
         label: Send
         layout {
             sequence: 10
-            region: @requestBarCR
+            region: @requestSR
             slot: NEXT
         }
         appearance {
@@ -2629,7 +2693,7 @@ page 210 (
             templateOptions: #DEFAULT#
         }
         behavior {
-            action: definedByDynamicAction
+            warnOnUnsavedChanges: doNotCheck
         }
     )
 
@@ -2671,45 +2735,15 @@ page 210 (
         label: Save
         layout {
             sequence: 20
-            region: @generalButtonsSR
+            region: @requestSR
             slot: NEXT
         }
         appearance {
             buttonTemplate: @/text
-            hot: true
             templateOptions: #DEFAULT#
         }
         behavior {
             warnOnUnsavedChanges: doNotCheck
-        }
-        serverSideCondition {
-            type: itemIsNotNull
-            item: P210_ENDPOINT_ID
-        }
-    )
-
-    button CREATE (
-        buttonName: CREATE
-        advanced {
-            htmlDomId: CREATE
-        }
-        label: Create
-        layout {
-            sequence: 30
-            region: @generalButtonsSR
-            slot: NEXT
-        }
-        appearance {
-            buttonTemplate: @/text
-            hot: true
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            warnOnUnsavedChanges: doNotCheck
-        }
-        serverSideCondition {
-            type: itemIsNull
-            item: P210_ENDPOINT_ID
         }
     )
 
@@ -2733,84 +2767,6 @@ page 210 (
             target: {
                 page: 600
             }
-            warnOnUnsavedChanges: doNotCheck
-        }
-    )
-
-    button SAVE_AUTH (
-        buttonName: SAVE_AUTH
-        advanced {
-            htmlDomId: SAVE_AUTH
-        }
-        label: Save
-        layout {
-            sequence: 20
-            region: @authButtonsSR
-            slot: NEXT
-        }
-        appearance {
-            buttonTemplate: @/text
-            hot: true
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            warnOnUnsavedChanges: doNotCheck
-        }
-    )
-
-    button REMOVE_BODY (
-        buttonName: REMOVE_BODY
-        advanced {
-            htmlDomId: REMOVE_BODY
-        }
-        label: Remove body
-        layout {
-            sequence: 10
-            region: @bodyButtonsSR
-            slot: DELETE
-        }
-        appearance {
-            buttonTemplate: @/text
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            executeValidations: false
-            warnOnUnsavedChanges: doNotCheck
-            requiresConfirmation: true
-        }
-        confirmation {
-            message: &APP_TEXT$DELETE_MSG!RAW.
-            style: danger
-        }
-        serverSideCondition {
-            type: rowsReturned
-            sqlQuery:
-                ```sql
-                select 1                                                   as body_exists
-                  from arw_request_bodies b
-                 where b.endpoint_id = :P210_ENDPOINT_ID
-                   and b.active_yn = 'Y'
-                ```
-        }
-    )
-
-    button SAVE_BODY (
-        buttonName: SAVE_BODY
-        advanced {
-            htmlDomId: SAVE_BODY
-        }
-        label: Save body
-        layout {
-            sequence: 20
-            region: @bodyButtonsSR
-            slot: NEXT
-        }
-        appearance {
-            buttonTemplate: @/text
-            hot: true
-            templateOptions: #DEFAULT#
-        }
-        behavior {
             warnOnUnsavedChanges: doNotCheck
         }
     )
@@ -2924,6 +2880,23 @@ page 210 (
         }
     )
 
+    computation compute-environment-name (
+        itemName: P210_ENV_NAME
+        execution {
+            sequence: 15
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select v.name                                              as environment_name
+                  from arw_environments v
+                 where v.environment_id = :P210_ENVIRONMENT_ID
+                ```
+        }
+    )
+
     computation compute-execution-id (
         itemName: P210_EXECUTION_ID
         execution {
@@ -3020,14 +2993,14 @@ page 210 (
     // =========================================================================
 
     dynamicAction send-request (
-        name: Send Request
+        name: Add Sample
         execution {
             sequence: 10
         }
         when {
             event: click
             selectionType: jQuerySelector
-            jquerySelector: #SEND, #ADD_SAMPLE
+            jquerySelector: #ADD_SAMPLE
         }
 
         action execute-endpoint (
@@ -3131,6 +3104,56 @@ page 210 (
             }
             execution {
                 sequence: 50
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-environment (
+        name: Change Environment
+        execution {
+            sequence: 15
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_ENV_NAME
+        }
+
+        action set-active-environment (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    :ARW_ENV_NAME        := :P210_ENV_NAME;
+                    :P210_ENVIRONMENT_ID := arw_environments_api.resolve_environment_id(
+                                                p_collection_id     => :P210_COLLECTION_ID
+                                              , p_environment_name  => :ARW_ENV_NAME
+                                            );
+                    ```
+                itemsToSubmit: [
+                    P210_ENV_NAME
+                    P210_COLLECTION_ID
+                ]
+                itemsToReturn: [
+                    P210_ENVIRONMENT_ID
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-url-preview (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @requestBarCR
+            }
+            execution {
+                sequence: 20
                 fireOnInit: false
             }
         )
@@ -3572,31 +3595,6 @@ page 210 (
 
     )
 
-    dynamicAction refresh-url-after-params-save (
-        name: Refresh URL after Params Save
-        execution {
-            sequence: 90
-        }
-        when {
-            event: region/interactiveGrid/interactivegridsave
-            selectionType: region
-            region: @paramsIG
-        }
-
-        action refresh-request-bar (
-            action: refresh
-            affectedElements {
-                selectionType: region
-                region: @requestBarCR
-            }
-            execution {
-                sequence: 10
-                fireOnInit: false
-            }
-        )
-
-    )
-
     // =========================================================================
     // Processes
     // =========================================================================
@@ -3661,70 +3659,52 @@ page 210 (
         }
     )
 
-    process create-endpoint (
-        name: Create Endpoint
-        type: executeCode
-        source {
-            plsqlCode:
-                ```plsql
-                :P210_ENDPOINT_ID := arw_endpoint_api.create_endpoint(
-                                         p_collection_id          => :P210_COLLECTION_ID
-                                       , p_name                   => :P210_NAME
-                                       , p_http_method            => :P210_HTTP_METHOD
-                                       , p_url_path               => :P210_URL_PATH
-                                       , p_credential_id          => :P210_CREDENTIAL_ID
-                                       , p_timeout_secs           => :P210_TIMEOUT_SECS
-                                       , p_runtime_target_code    => :P210_RUNTIME_TARGET_CODE
-                                       , p_engine_code            => :P210_ENGINE_CODE
-                                     );
-                ```
-        }
-        execution {
-            sequence: 10
-        }
-        successMessage {
-            successMessage: Endpoint created.
-        }
-        serverSideCondition {
-            type: expression
-            language: plsql
-            plsqlExpression:
-                ```plsql
-                :REQUEST = 'CREATE'
-                ```
-        }
-    )
-
     process save-endpoint (
         name: Save Endpoint
         type: executeCode
         source {
             plsqlCode:
                 ```plsql
-                arw_endpoint_api.update_endpoint(
-                    p_endpoint_id                   => :P210_ENDPOINT_ID
-                  , p_name                          => :P210_NAME
-                  , p_http_method                   => :P210_HTTP_METHOD
-                  , p_url_path                      => :P210_URL_PATH
-                  , p_credential_id                 => :P210_CREDENTIAL_ID
-                  , p_timeout_secs                  => :P210_TIMEOUT_SECS
-                  , p_runtime_target_code           => :P210_RUNTIME_TARGET_CODE
-                  , p_engine_code                   => :P210_ENGINE_CODE
-                );
+                if :P210_ENDPOINT_ID is null then
+                  -- New request: no collection chosen means Drafts
+                  :P210_COLLECTION_ID := coalesce(:P210_COLLECTION_ID, arw_collections_api.drafts_collection_id);
+                  :P210_ENDPOINT_ID   := arw_endpoint_api.create_endpoint(
+                                             p_collection_id          => :P210_COLLECTION_ID
+                                           , p_name                   => :P210_NAME
+                                           , p_http_method            => :P210_HTTP_METHOD
+                                           , p_url_path               => :P210_URL_PATH
+                                           , p_credential_id          => :P210_CREDENTIAL_ID
+                                           , p_timeout_secs           => :P210_TIMEOUT_SECS
+                                           , p_runtime_target_code    => :P210_RUNTIME_TARGET_CODE
+                                           , p_engine_code            => :P210_ENGINE_CODE
+                                         );
+                else
+                  arw_endpoint_api.update_endpoint(
+                      p_endpoint_id                   => :P210_ENDPOINT_ID
+                    , p_name                          => :P210_NAME
+                    , p_http_method                   => :P210_HTTP_METHOD
+                    , p_url_path                      => :P210_URL_PATH
+                    , p_credential_id                 => :P210_CREDENTIAL_ID
+                    , p_timeout_secs                  => :P210_TIMEOUT_SECS
+                    , p_runtime_target_code           => :P210_RUNTIME_TARGET_CODE
+                    , p_engine_code                   => :P210_ENGINE_CODE
+                    , p_collection_id                 => :P210_COLLECTION_ID
+                  );
+                end if;
                 ```
         }
         execution {
-            sequence: 20
+            sequence: 10
         }
         successMessage {
-            successMessage: Endpoint saved.
+            successMessage: Saved.
         }
         serverSideCondition {
             type: expression
             language: plsql
             plsqlExpression:
                 ```plsql
-                :REQUEST in ('SAVE', 'SAVE_AUTH')
+                :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )
@@ -3770,47 +3750,14 @@ page 210 (
                 ```
         }
         execution {
-            sequence: 40
-        }
-        successMessage {
-            successMessage: Body saved.
+            sequence: 20
         }
         serverSideCondition {
             type: expression
             language: plsql
             plsqlExpression:
                 ```plsql
-                :REQUEST = 'SAVE_BODY'
-                ```
-        }
-    )
-
-    process remove-body (
-        name: Remove Body
-        type: executeCode
-        source {
-            plsqlCode:
-                ```plsql
-                arw_endpoint_api.remove_body(
-                    p_endpoint_id                   => :P210_ENDPOINT_ID
-                );
-
-                :P210_CONTENT_TYPE  := null;
-                :P210_BODY_TEMPLATE := null;
-                ```
-        }
-        execution {
-            sequence: 50
-        }
-        successMessage {
-            successMessage: Body removed.
-        }
-        serverSideCondition {
-            type: expression
-            language: plsql
-            plsqlExpression:
-                ```plsql
-                :REQUEST = 'REMOVE_BODY'
+                :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )
@@ -3916,6 +3863,82 @@ page 210 (
         }
     )
 
+    process execute-request (
+        name: Execute Request
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                  -- The execution is logged in an autonomous transaction that
+                  -- references the endpoint: commit what Save just wrote first,
+                  -- or a request created by this same Send would deadlock.
+                  commit;
+
+                  :P210_ACTION_ERROR   := null;
+                  :P210_ENVIRONMENT_ID := arw_environments_api.resolve_environment_id(
+                                              p_collection_id       => :P210_COLLECTION_ID
+                                            , p_environment_name    => :ARW_ENV_NAME
+                                          );
+                  :P210_EXECUTION_ID   := arw_exec_api.execute_endpoint(
+                                              p_endpoint_id         => :P210_ENDPOINT_ID
+                                            , p_environment_id      => :P210_ENVIRONMENT_ID
+                                          );
+                  :P210_SAMPLE_ID      := arw_discover_api.save_sample(
+                                              p_execution_id        => :P210_EXECUTION_ID
+                                          );
+                exception
+                  when others then
+                    -- Keep the saved request; report the refusal or failure on reload
+                    :P210_ACTION_ERROR := case
+                                            when sqlcode between -20999 and -20000
+                                            then regexp_replace(
+                                                     regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                                   , '^ORA-[0-9]+: '
+                                                 )
+                                            else 'The request could not be sent. See the debug log for details.'
+                                          end;
+                    apex_debug.error(
+                        p_message                     => 'Send failed for endpoint %s: %s'
+                      , p0                            => :P210_ENDPOINT_ID
+                      , p1                            => sqlerrm
+                    );
+                end;
+                ```
+        }
+        execution {
+            sequence: 80
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SEND' and :P210_ENDPOINT_ID is not null
+                ```
+        }
+    )
+
+    process clear-action-error (
+        name: Clear Action Error
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                -- Shown once by the page-load JavaScript; don't repeat it on the next visit
+                :P210_ACTION_ERROR := null;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: afterFooter
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ACTION_ERROR
+        }
+    )
+
     // =========================================================================
     // Branches
     // =========================================================================
@@ -3966,7 +3989,7 @@ page 210 (
             language: plsql
             plsqlExpression:
                 ```plsql
-                :REQUEST in ('CREATE', 'SAVE', 'SAVE_AUTH', 'SAVE_BODY', 'REMOVE_BODY')
+                :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )

@@ -8,6 +8,8 @@ as
   gc_err_invalid_parent constant number := -20941;
   gc_err_has_dependents constant number := -20942;
 
+  gc_drafts_name constant arw_collections.name%type := 'Drafts';
+
 
 
 
@@ -335,6 +337,69 @@ as
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
   end deactivate_collection;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: drafts_collection_id
+  -- ===========================================================================
+  /**
+   * Returns the root "Drafts" collection, creating it the first time. A
+   * quick request (New request, no collection chosen) is saved there, so
+   * calling a URL never requires creating a collection first; it can be
+   * moved to a real collection later from the editor's Settings tab.
+   *
+   * @example
+   * set serveroutput on
+   * begin
+   *   dbms_output.put_line('drafts = ' || arw_collections_api.drafts_collection_id);
+   * end;
+   * /
+   *
+   * @issue   #25 (Phase 1 - Postman-like request flow)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 24, 2026
+   *
+   * @return arw_collections.collection_id%type  Identifier of the Drafts collection
+   */
+  function drafts_collection_id
+  return arw_collections.collection_id%type
+  is
+    l_scope         logger_logs.scope%type := gc_scope_prefix || 'drafts_collection_id';
+    l_params        logger.tab_param;
+    l_collection_id arw_collections.collection_id%type;
+  begin
+    logger.log('START', l_scope, null, l_params);
+
+    select min(c.collection_id)                            as collection_id
+      into l_collection_id
+      from arw_collections c
+     where c.name = gc_drafts_name
+       and c.parent_collection_id is null
+       and c.active_yn = 'Y';
+
+    if l_collection_id is null then
+      l_collection_id := create_collection(
+                             p_name                     => gc_drafts_name
+                           , p_description              => 'Quick requests created with New request -- move them to a collection from the Settings tab.'
+                         );
+    end if;
+
+    logger.append_param(l_params, 'l_collection_id', l_collection_id);
+    logger.log('END', l_scope, null, l_params);
+
+    return l_collection_id;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end drafts_collection_id;
 
 
 end arw_collections_api;

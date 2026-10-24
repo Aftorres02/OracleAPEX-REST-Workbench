@@ -148,6 +148,49 @@ as
 
 
   -- ===========================================================================
+  -- FUNCTION: default_name (private)
+  -- ===========================================================================
+  /**
+   * Name given to an endpoint saved without one -- the quick-request flow
+   * never asks for a name: the method plus the URL without scheme, query or
+   * fragment (GET jsonplaceholder.typicode.com/users, GET /users).
+   *
+   * @example
+   * -- Private: exercised through create_endpoint / update_endpoint with
+   * -- p_name => null.
+   *
+   * @issue   #25 (Phase 1 - Postman-like request flow)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 24, 2026
+   *
+   * @param p_http_method HTTP verb of the request
+   * @param p_url_path URL or path as stored
+   * @return arw_endpoints.name%type  Default display name
+   */
+  function default_name(
+      p_http_method                             in arw_endpoints.http_method%type
+    , p_url_path                                in arw_endpoints.url_path%type
+  )
+  return arw_endpoints.name%type
+  is
+  begin
+    return substr(
+               p_http_method || ' '
+               || regexp_replace(regexp_replace(p_url_path, '^https?://', '', 1, 1, 'i'), '[?#].*$')
+             , 1
+             , 200
+           );
+  end default_name;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
   -- FUNCTION: create_endpoint
   -- ===========================================================================
   /**
@@ -167,7 +210,7 @@ as
    * @created September 10, 2026
    *
    * @param p_collection_id Collection this endpoint belongs to
-   * @param p_name Display name of the endpoint
+   * @param p_name Display name of the endpoint; null takes METHOD + URL
    * @param p_http_method HTTP verb of the request
    * @param p_url_path Path relative to the environment base_url, or a full URL (see normalize_url_path)
    * @param p_credential_id Credential to authenticate with; null when not needed
@@ -178,7 +221,7 @@ as
    */
   function create_endpoint(
       p_collection_id                           in arw_endpoints.collection_id%type
-    , p_name                                    in arw_endpoints.name%type
+    , p_name                                    in arw_endpoints.name%type default null
     , p_http_method                             in arw_endpoints.http_method%type
     , p_url_path                                in arw_endpoints.url_path%type
     , p_credential_id                           in arw_endpoints.credential_id%type default null
@@ -192,6 +235,7 @@ as
     l_params      logger.tab_param;
     l_endpoint_id arw_endpoints.endpoint_id%type;
     l_url_path    arw_endpoints.url_path%type;
+    l_name        arw_endpoints.name%type;
   begin
     logger.append_param(l_params, 'p_collection_id', p_collection_id);
     logger.append_param(l_params, 'p_name', p_name);
@@ -203,6 +247,14 @@ as
                       p_collection_id                   => p_collection_id
                     , p_url_path                        => p_url_path
                   );
+
+    l_name := coalesce(
+                  trim(p_name)
+                , default_name(
+                      p_http_method                     => p_http_method
+                    , p_url_path                        => l_url_path
+                  )
+              );
 
     insert
       into arw_endpoints (
@@ -217,7 +269,7 @@ as
       )
     values (
            p_collection_id
-         , p_name
+         , l_name
          , p_http_method
          , l_url_path
          , p_credential_id
@@ -248,7 +300,9 @@ as
   -- PROCEDURE: update_endpoint
   -- ===========================================================================
   /**
-   * Updates an existing endpoint definition.
+   * Updates an existing endpoint definition. A non-null p_collection_id
+   * moves it to that collection (e.g. out of Drafts); a null p_name takes
+   * the default METHOD + URL name.
    *
    * @example
    * begin
@@ -278,6 +332,7 @@ as
    * @param p_timeout_secs Call timeout, in seconds
    * @param p_runtime_target_code Target runtime: apex, job or autonomous
    * @param p_engine_code Invocation engine identifier
+   * @param p_collection_id Collection to move the endpoint to; null keeps the current one
    */
   procedure update_endpoint(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
@@ -288,20 +343,23 @@ as
     , p_timeout_secs                            in arw_endpoints.timeout_secs%type
     , p_runtime_target_code                     in arw_endpoints.runtime_target_code%type
     , p_engine_code                             in arw_endpoints.engine_code%type
+    , p_collection_id                           in arw_endpoints.collection_id%type default null
   )
   is
     l_scope         logger_logs.scope%type := gc_scope_prefix || 'update_endpoint';
     l_params        logger.tab_param;
     l_collection_id arw_endpoints.collection_id%type;
     l_url_path      arw_endpoints.url_path%type;
+    l_name          arw_endpoints.name%type;
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
     logger.append_param(l_params, 'p_name', p_name);
     logger.append_param(l_params, 'p_url_path', p_url_path);
+    logger.append_param(l_params, 'p_collection_id', p_collection_id);
     logger.log('START', l_scope, null, l_params);
 
     begin
-      select e.collection_id                               as collection_id
+      select coalesce(p_collection_id, e.collection_id)    as collection_id
         into l_collection_id
         from arw_endpoints e
        where e.endpoint_id = p_endpoint_id
@@ -316,8 +374,17 @@ as
                     , p_url_path                        => p_url_path
                   );
 
+    l_name := coalesce(
+                  trim(p_name)
+                , default_name(
+                      p_http_method                     => p_http_method
+                    , p_url_path                        => l_url_path
+                  )
+              );
+
     update arw_endpoints
-       set name                 = p_name
+       set collection_id        = l_collection_id
+         , name                 = l_name
          , http_method          = p_http_method
          , url_path             = l_url_path
          , credential_id        = p_credential_id
@@ -806,7 +873,9 @@ as
   -- ===========================================================================
   /**
    * Creates or replaces the request body for an endpoint (upsert, one body
-   * per endpoint per uk_request_bodies_endpoint).
+   * per endpoint per uk_request_bodies_endpoint). A null p_body_template
+   * removes the body instead (soft delete, no error when there is none),
+   * so the editor can save the Body tab as-is on every Save / Send.
    *
    * @example
    * begin
@@ -825,7 +894,7 @@ as
    *
    * @param p_endpoint_id Endpoint this body belongs to
    * @param p_content_type Content-Type of the body
-   * @param p_body_template Template of the request body; supports {{var}} tokens
+   * @param p_body_template Template of the request body; supports {{var}} tokens; null removes the body
    */
   procedure set_body(
       p_endpoint_id                             in arw_request_bodies.endpoint_id%type
@@ -839,6 +908,16 @@ as
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
     logger.append_param(l_params, 'p_content_type', p_content_type);
     logger.log('START', l_scope, null, l_params);
+
+    if p_body_template is null then
+      update arw_request_bodies
+         set active_yn = 'N'
+       where endpoint_id = p_endpoint_id
+         and active_yn = 'Y';
+
+      logger.log('END - empty body removed', l_scope, null, l_params);
+      return;
+    end if;
 
     merge into arw_request_bodies dest
     using (

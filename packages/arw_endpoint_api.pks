@@ -12,7 +12,7 @@ as
 
   function create_endpoint(
       p_collection_id                           in arw_endpoints.collection_id%type
-    , p_name                                    in arw_endpoints.name%type
+    , p_name                                    in arw_endpoints.name%type default null
     , p_http_method                             in arw_endpoints.http_method%type
     , p_url_path                                in arw_endpoints.url_path%type
     , p_credential_id                           in arw_endpoints.credential_id%type default null
@@ -32,6 +32,7 @@ as
     , p_timeout_secs                            in arw_endpoints.timeout_secs%type
     , p_runtime_target_code                     in arw_endpoints.runtime_target_code%type
     , p_engine_code                             in arw_endpoints.engine_code%type
+    , p_collection_id                           in arw_endpoints.collection_id%type default null
   );
 
 
