@@ -32,7 +32,7 @@ page 410 (
                 ```sql
                 select l.execution_id                                      as execution_id
                      , l.http_method                                       as http_method
-                     , en.base_url || l.display_path                       as request_url
+                     , l.request_url                                       as request_url
                      , l.collection_name                                   as collection_name
                      , l.endpoint_name                                     as endpoint_name
                      , l.environment_name                                  as environment_name
@@ -42,7 +42,6 @@ page 410 (
                      , dbms_lob.substr(e.request_body, 20000, 1)           as request_body
                   from arw_execution_log_vw                l
                   join arw_executions                      e on e.execution_id = l.execution_id
-                  join arw_environments                   en on en.environment_id = l.environment_id
                  where l.execution_id = :P410_EXECUTION_ID
                 ```
             pageItemsToSubmit: [

@@ -336,16 +336,33 @@ page 210 (
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select e.http_method                                       as http_method
-                     , arw_endpoint_api.display_url(
-                           p_endpoint_id => e.endpoint_id
-                       )                                                   as display_url
-                  from arw_endpoints e
-                 where e.endpoint_id = :P210_ENDPOINT_ID
-                   and e.active_yn = 'Y'
+                with w_url as (
+                  select e.http_method                                     as http_method
+                       , arw_endpoint_api.display_url(
+                             p_endpoint_id    => e.endpoint_id
+                           , p_environment_id => :P210_ENVIRONMENT_ID
+                         )                                                 as display_url
+                       , arw_endpoint_api.display_url(
+                             p_endpoint_id    => e.endpoint_id
+                         )                                                 as template_url
+                    from arw_endpoints e
+                   where e.endpoint_id = :P210_ENDPOINT_ID
+                     and e.active_yn = 'Y'
+                )
+                select u.http_method                                       as http_method
+                     , u.display_url                                       as display_url
+                     , case
+                         when u.template_url != u.display_url
+                         then u.template_url || ' -- environment ' || coalesce(:ARW_ENV_NAME, 'none')
+                         when arw_endpoint_api.is_absolute_url_yn(p_url => u.display_url) = 'N'
+                         then 'No environment in this collection: add one with a base_url, or enter the full URL'
+                         else 'Full URL -- sent as written, no environment base'
+                       end                                                 as url_note
+                  from w_url u
                 ```
             pageItemsToSubmit: [
                 P210_ENDPOINT_ID
+                P210_ENVIRONMENT_ID
             ]
         }
         layout {
@@ -388,6 +405,13 @@ page 210 (
             }
         )
 
+        column URL_NOTE (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
         column DISPLAY_URL (
             type: plainText
             heading {
@@ -397,7 +421,7 @@ page 210 (
                 sequence: 20
             }
             columnFormatting {
-                htmlExpression: <div class="arw-requestbar"><span class="arw-chip arw-chip--method">#HTTP_METHOD#</span><span class="arw-urlbar arw-mono">#DISPLAY_URL#</span></div>
+                htmlExpression: <div class="arw-requestbar"><span class="arw-chip arw-chip--method">#HTTP_METHOD#</span><span class="arw-urlbar arw-mono">#DISPLAY_URL#</span></div><div class="arw-muted arw-mono">#URL_NOTE#</div>
             }
         )
 
@@ -2127,7 +2151,7 @@ page 210 (
     pageItem P210_URL_PATH (
         type: textField
         label {
-            label: URL Path
+            label: URL
             alignment: left
         }
         layout {
@@ -2158,7 +2182,7 @@ page 210 (
             dataType: varchar2
         }
         help {
-            inlineHelpText: Appended to the environment's base_url, e.g. /todos -- query params live in the Params tab
+            inlineHelpText: A full URL (https://api.example.com/users) is sent as written. A path (/users) goes behind the environment's base_url -- a pasted full URL that starts with that base_url is saved as the path. Query params live in the Params tab.
         }
     )
 

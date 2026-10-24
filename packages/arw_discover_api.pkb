@@ -385,7 +385,9 @@ as
     end if;
 
     if l_entity is null then
-      l_path := regexp_replace(p_url_path, '[?#].*$', '');
+      -- Drop scheme://host of a full-URL endpoint, then query and fragment
+      l_path := regexp_replace(p_url_path, '^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*', '');
+      l_path := regexp_replace(l_path, '[?#].*$', '');
 
       for i in reverse 1 .. nvl(regexp_count(l_path, '[^/]+'), 0)
       loop

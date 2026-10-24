@@ -616,6 +616,11 @@ as
    * error, no HTTP status, the ORA-20923 text in response_body_clob) before
    * ORA-20923 is raised, so the History shows the blocked attempt.
    *
+   * An endpoint whose url_path is a full http(s) URL is sent as written:
+   * no base_url is prepended, and p_environment_id may be null (a quick
+   * test needs no environment). When an environment is given its
+   * {{var}} tokens still resolve. A relative url_path needs one.
+   *
    * @example
    * set serveroutput on
    * declare
@@ -636,7 +641,7 @@ as
    * @created September 13, 2026
    *
    * @param  p_endpoint_id     Endpoint to execute
-   * @param  p_environment_id  Environment to resolve base_url/host against
+   * @param  p_environment_id  Environment to resolve base_url and {{var}} tokens against; may be null for a full-URL endpoint
    * @return arw_executions.execution_id%type  Identifier of the history row written
    */
   function execute_endpoint(
@@ -664,6 +669,7 @@ as
     l_preflight_message varchar2(32767 char);
 
     l_url             varchar2(32767 char);
+    l_query_string    varchar2(4000 char);
     l_body            clob;
     l_content_type    arw_request_bodies.content_type%type;
     l_request_headers clob;
@@ -703,18 +709,26 @@ as
         raise_application_error(gc_err_endpoint_not_found, 'Endpoint not found: ' || p_endpoint_id);
     end;
 
-    begin
-      select collection_id
-           , base_url
-        into l_environment_collection_id
-           , l_base_url
-        from arw_environments
-       where environment_id = p_environment_id
-         and active_yn = 'Y';
-    exception
-      when no_data_found then
-        raise_application_error(gc_err_environment_not_found, 'Environment not found: ' || p_environment_id);
-    end;
+    if p_environment_id is not null then
+      begin
+        select collection_id
+             , rtrim(base_url, '/')
+          into l_environment_collection_id
+             , l_base_url
+          from arw_environments
+         where environment_id = p_environment_id
+           and active_yn = 'Y';
+      exception
+        when no_data_found then
+          raise_application_error(gc_err_environment_not_found, 'Environment not found: ' || p_environment_id);
+      end;
+    elsif arw_endpoint_api.is_absolute_url_yn(p_url => l_url_path) = 'N' then
+      raise_application_error(
+          gc_err_environment_not_found
+        , 'The URL ' || l_url_path || ' is a path, so it needs an environment with a base_url --'
+          || ' add one to the collection, or enter the full URL (https://...).'
+      );
+    end if;
 
     if l_environment_collection_id != l_endpoint_collection_id then
       raise_application_error(
@@ -727,7 +741,42 @@ as
       raise_application_error(gc_err_engine_not_implemented, 'Engine not yet implemented: ' || l_engine_code);
     end if;
 
-    l_host := extract_host(p_url => l_base_url);
+
+    -- ===========================================================================
+    -- Resolve path parameters, then {{var}} tokens left in the path, then
+    -- append the query string. A full http(s) URL is used as written;
+    -- a path goes behind the environment's base_url.
+    -- ===========================================================================
+
+    l_url_path := apply_path_params(
+        p_endpoint_id                           => p_endpoint_id
+      , p_url_path                              => l_url_path
+      , p_environment_id                        => p_environment_id
+    );
+    -- ===========================================================================
+
+    l_url := case
+               when arw_endpoint_api.is_absolute_url_yn(p_url => l_url_path) = 'N' then l_base_url
+             end
+             || substitute_variables(
+                    p_text                              => l_url_path
+                  , p_environment_id                    => p_environment_id
+                  , p_url_encode_yn                     => 'Y'
+                );
+
+    l_query_string := build_query_string(
+                          p_endpoint_id                 => p_endpoint_id
+                        , p_environment_id              => p_environment_id
+                      );
+
+    if l_query_string is not null and instr(l_url, '?') > 0 then
+      -- The URL already carries a query string: join with an ampersand
+      l_query_string := chr(38) || substr(l_query_string, 2);
+    end if;
+
+    l_url := l_url || l_query_string;
+
+    l_host := extract_host(p_url => l_url);
 
 
     -- ===========================================================================
@@ -774,30 +823,6 @@ as
       , o_body                                  => l_body
       , o_content_type                          => l_content_type
     );
-
-
-    -- ===========================================================================
-    -- Resolve path parameters, then {{var}} tokens left in the path, then
-    -- append the query string.
-    -- ===========================================================================
-
-    l_url_path := apply_path_params(
-        p_endpoint_id                           => p_endpoint_id
-      , p_url_path                              => l_url_path
-      , p_environment_id                        => p_environment_id
-    );
-    -- ===========================================================================
-
-    l_url := l_base_url
-             || substitute_variables(
-                    p_text                              => l_url_path
-                  , p_environment_id                    => p_environment_id
-                  , p_url_encode_yn                     => 'Y'
-                )
-             || build_query_string(
-                    p_endpoint_id                       => p_endpoint_id
-                  , p_environment_id                    => p_environment_id
-                );
 
 
     -- ===========================================================================

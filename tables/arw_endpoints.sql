@@ -70,7 +70,7 @@ begin
   execute immediate 'comment on column arw_endpoints.credential_id is ''Credential used to authenticate the call; null when the endpoint requires no auth.''';
   execute immediate 'comment on column arw_endpoints.name is ''Display name of the endpoint.''';
   execute immediate 'comment on column arw_endpoints.http_method is ''HTTP verb of the request.''';
-  execute immediate 'comment on column arw_endpoints.url_path is ''Path relative to the active environment base_url; supports {{var}} tokens.''';
+  execute immediate 'comment on column arw_endpoints.url_path is ''Path relative to the active environment base_url, or a full http(s) URL sent as written; supports {{var}} tokens.''';
   execute immediate 'comment on column arw_endpoints.timeout_secs is ''Call timeout, in seconds.''';
   execute immediate 'comment on column arw_endpoints.runtime_target_code is ''Target runtime for the generated code: apex (live session), job (scheduler, no APEX session) or autonomous.''';
   execute immediate 'comment on column arw_endpoints.engine_code is ''Invocation engine: apex_web_service, apex_web_service_b (blob), utl_http or dbms_cloud_send_request.''';

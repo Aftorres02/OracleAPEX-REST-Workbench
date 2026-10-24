@@ -448,6 +448,14 @@ as
 
     l_ctx.url_path := apply_env_vars(l_ctx.url_path, l_environment_id, l_uses_secret);
 
+    -- A full-URL endpoint ignores the environment: its own scheme://host
+    -- becomes the base, the rest the path, so every template still renders
+    -- base_url || url_path.
+    if arw_endpoint_api.is_absolute_url_yn(p_url => l_ctx.url_path) = 'Y' then
+      l_ctx.base_url := regexp_substr(l_ctx.url_path, '^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*');
+      l_ctx.url_path := coalesce(substr(l_ctx.url_path, length(l_ctx.base_url) + 1), '/');
+    end if;
+
     for l_rec in (
       select p.param_kind_code                             as param_kind_code
            , p.param_name                                  as param_name

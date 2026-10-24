@@ -27,9 +27,14 @@
 --     character length (equal to bytes for ASCII/JSON payloads).
 --   * display_path mirrors arw_endpoint_api.display_url without the
 --     {{base_url}} prefix, built from the endpoint's current active query
---     parameters (arw_executions does not store the resolved URL). chr(38)
---     is the ampersand, kept out of the source so SQL*Plus substitution
---     never prompts.
+--     parameters (arw_executions does not store the resolved URL). The
+--     query string joins with '?' or, when url_path already carries one,
+--     with an ampersand. chr(38) is the ampersand, kept out of the source
+--     so SQL*Plus substitution never prompts.
+--   * request_url is display_path behind the environment's base_url, or
+--     display_path alone when url_path is a full http(s) URL. Such an
+--     endpoint can run with no environment, so environment_id may be null
+--     (left join; environment_name is then 'none').
 create or replace view arw_execution_log_vw
 as
 with w_base as (
@@ -62,8 +67,8 @@ with w_base as (
    where x.active_yn = 'Y'
 ), w_query as (
   select p.endpoint_id                                                 as endpoint_id
-       , '?' || listagg(p.param_name || '=' || p.param_value, chr(38) on overflow truncate)
-                 within group (order by p.param_id)                    as query_string
+       , listagg(p.param_name || '=' || p.param_value, chr(38) on overflow truncate)
+           within group (order by p.param_id)                          as query_string
     from arw_endpoint_params             p
     join arw_endpoints                   e on e.endpoint_id = p.endpoint_id
                                           and e.active_yn = 'Y'
@@ -77,10 +82,23 @@ select b.execution_id                                                  as execut
      , b.collection_id                                                 as collection_id
      , c.name                                                          as collection_name
      , b.environment_id                                                as environment_id
-     , v.name                                                          as environment_name
+     , coalesce(v.name, 'none')                                        as environment_name
      , b.http_method                                                   as http_method
      , b.url_path                                                      as url_path
-     , b.url_path || q.query_string                                    as display_path
+     , b.url_path
+       || case
+            when q.query_string is not null
+            then case when instr(b.url_path, '?') > 0 then chr(38) else '?' end || q.query_string
+          end                                                          as display_path
+     , case
+         when regexp_like(b.url_path, '^https?://', 'i') then null
+         else rtrim(v.base_url, '/')
+       end
+       || b.url_path
+       || case
+            when q.query_string is not null
+            then case when instr(b.url_path, '?') > 0 then chr(38) else '?' end || q.query_string
+          end                                                          as request_url
      , b.request_status_code                                           as request_status_code
      , b.http_status_code                                              as http_status_code
      , coalesce(to_char(b.http_status_code), to_char(unistr('\2014'))) as status_label
@@ -146,5 +164,5 @@ select b.execution_id                                                  as execut
      , b.executed_by                                                   as executed_by
   from w_base                            b
   join arw_collections                   c on c.collection_id = b.collection_id
-  join arw_environments                  v on v.environment_id = b.environment_id
+  left join arw_environments             v on v.environment_id = b.environment_id
   left join w_query                      q on q.endpoint_id = b.endpoint_id;

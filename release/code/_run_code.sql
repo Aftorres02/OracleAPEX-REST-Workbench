@@ -8,3 +8,6 @@
 -- Both scripts are idempotent.
 @code/discovery_upgrade.sql
 @code/codegen_upgrade.sql
+
+-- Issue #25: full-URL endpoints run without an environment (idempotent).
+@code/absolute_url_upgrade.sql

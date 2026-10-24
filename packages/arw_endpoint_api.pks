@@ -102,6 +102,13 @@ as
 
   function display_url(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type default null
+  )
+  return varchar2;
+
+
+  function is_absolute_url_yn(
+      p_url                                     in varchar2
   )
   return varchar2;
 

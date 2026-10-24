@@ -13,7 +13,10 @@
 -- Notes:
 --   * display_url is '{{base_url}}' || url_path || '?k=v' + chr(38) + 'k=v'
 --     built from the active query parameters in param_id order, values not
---     url-encoded (it is a display string, as in the mockup URL bar). This
+--     url-encoded (it is a display string, as in the mockup URL bar). A
+--     url_path that is already a full http(s) URL gets no '{{base_url}}'
+--     prefix, and the query string joins with an ampersand when url_path
+--     already carries a '?'. This
 --     view is the single definition: arw_endpoint_api.display_url reads it,
 --     so report queries never call a logging PL/SQL function once per row.
 --   * data_profile_id / profile_status_code (proposal, accepted) come from
@@ -39,8 +42,8 @@ with w_base as (
    where e.active_yn = 'Y'
 ), w_query as (
   select p.endpoint_id                                                 as endpoint_id
-       , '?' || listagg(p.param_name || '=' || p.param_value, chr(38) on overflow truncate)
-                 within group (order by p.param_id)                    as query_string
+       , listagg(p.param_name || '=' || p.param_value, chr(38) on overflow truncate)
+           within group (order by p.param_id)                          as query_string
     from arw_endpoint_params             p
     join w_base                          b on b.endpoint_id = p.endpoint_id
    where p.active_yn = 'Y'
@@ -75,8 +78,20 @@ select b.endpoint_id                                                   as endpoi
      , b.name                                                          as name
      , b.http_method                                                   as http_method
      , b.url_path                                                      as url_path
-     , b.url_path || q.query_string                                    as display_path
-     , '{{base_url}}' || b.url_path || q.query_string                  as display_url
+     , b.url_path
+       || case
+            when q.query_string is not null
+            then case when instr(b.url_path, '?') > 0 then chr(38) else '?' end || q.query_string
+          end                                                          as display_path
+     , case
+         when regexp_like(b.url_path, '^https?://', 'i') then null
+         else '{{base_url}}'
+       end
+       || b.url_path
+       || case
+            when q.query_string is not null
+            then case when instr(b.url_path, '?') > 0 then chr(38) else '?' end || q.query_string
+          end                                                          as display_url
      , b.credential_id                                                 as credential_id
      , b.runtime_target_code                                           as runtime_target_code
      , coalesce(s.sample_count, 0)                                     as sample_count

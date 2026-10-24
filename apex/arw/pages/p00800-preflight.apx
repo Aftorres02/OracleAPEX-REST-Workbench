@@ -297,9 +297,14 @@ page 800 (
             sqlQuery:
                 ```sql
                 with w_hosts as (
-                  select distinct arw_preflight_api.host_of(p_url => e.base_url) as host
+                  select arw_preflight_api.host_of(p_url => e.base_url) as host
                     from arw_environments e
                    where e.active_yn = 'Y'
+                   union
+                  select arw_preflight_api.host_of(p_url => ep.url_path) as host
+                    from arw_endpoints ep
+                   where ep.active_yn = 'Y'
+                     and arw_endpoint_api.is_absolute_url_yn(p_url => ep.url_path) = 'Y'
                 )
                 select h.host                                              as display_value
                      , h.host                                              as return_value
@@ -330,7 +335,7 @@ page 800 (
                 ```
         }
         help {
-            inlineHelpText: Hosts of the active environments' base URLs
+            inlineHelpText: Hosts of the active environments' base URLs and of endpoints that use a full URL
         }
     )
 
