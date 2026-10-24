@@ -425,6 +425,43 @@ versión mínima de la Fase 0.
 > **Falta además:** la app no tiene Error Handling Function global
 > (`error-handling.md` §3), así que los errores `ORA-2094x` del paquete se
 > muestran tal cual en la notificación.
+>
+> **Actualización (2026-10-23, issue #25): app completa según los mockups
+> `docs/base/mockups/files_v2`, importada como aplicación 142 en
+> `DEV_AI_1`.** Donde el plan y los mockups difieren, mandan los mockups.
+>
+> - Backend nuevo: `arw_discover_api` (muestras + perfil editable,
+>   `profile_status_code` proposal/accepted), `arw_codegen_api` +
+>   `arw_render_utils` + 59 fragmentos en `arw_code_templates` (los 9
+>   artefactos: `_api` package, bloque anónimo, `json_table`, DDL de tabla,
+>   cURL, y APEXlang restDataSource / installScript / aiAgent tool /
+>   automation; el APEXlang generado pasa `apex validate`),
+>   `arw_environments_api`, `arw_target_profiles_api`,
+>   `arw_credentials_api` (incluye crear la Web Credential real),
+>   `arw_import_api` (Postman v2.1 — adelanta la Fase 2),
+>   `arw_preflight_api.preflight_report` (pipelined) y tres vistas
+>   (`arw_collection_summary_vw`, `arw_execution_log_vw`,
+>   `arw_endpoint_summary_vw`). `arw_exec_api` ahora sustituye path/form
+>   params y `{{var}}` del ambiente, y registra como ejecución `error` las
+>   llamadas rechazadas por el preflight.
+> - Páginas: 1 Home, 100/110 Collections, 200 Endpoints, 210 editor
+>   (General, Auth, Headers, Params, Body, Response con perfil derivado,
+>   Code con descarga del bundle `.apx`), 215 columna del perfil, 300/310
+>   Environments (+ variables, "Set active"), 400/410 History, 500/510
+>   Target profiles, 600/610 Credentials, 700 Import, 800 Preflight.
+> - Datos demo: colecciones JSONPlaceholder (6 endpoints, perfilados) y
+>   Sandbox (httpbin.org, sin ACL → el preflight lo bloquea, como el
+>   mockup), tres target profiles, historial real.
+> - Verificado: `apex validate` limpio; las 31 consultas de regiones/LOVs
+>   parsean y las 32 piezas de PL/SQL embebido compilan contra el esquema;
+>   flujo completo Send → muestra → Derive → Accept → 9 artefactos →
+>   bundle probado en vivo.
+>
+> **Pendiente:** revisión visual en el navegador (no hubo navegador en la
+> sesión que lo construyó); la variante `dbms_cloud_send_request` del
+> generador no compila aquí (el esquema no tiene EXECUTE sobre
+> `DBMS_CLOUD`); la ruta `job` del código generado deja `gc_app_id` /
+> `gc_app_user` como TODO; sigue sin Error Handling Function global.
 
 ### Fase 2 — Import de colecciones Postman
 
