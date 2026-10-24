@@ -3,7 +3,8 @@
 -- Script:  guide_upgrade.sql
 -- Purpose: Additive, re-runnable upgrade for the in-app Guide: creates
 --          arw_guide_examples (same definition as tables/arw_guide_examples.sql)
---          and its audit trigger when the table does not exist yet. Fresh
+--          and its audit trigger when the table does not exist yet, and
+--          moves an existing table to the four Guide section codes. Fresh
 --          installs get both from tables/ and triggers/.
 --
 -- @author  Angel Flores (Developer)
@@ -43,7 +44,7 @@ begin
         , last_updated_by               varchar2(60 char)
         , last_updated_on               timestamp with local time zone
         , constraint ck_arw_guide_examples_active_yn check (active_yn in ('Y', 'N'))
-        , constraint ck_arw_guide_examples_category check (category_code in ('basics', 'sending_data', 'variables', 'preflight'))
+        , constraint ck_arw_guide_examples_category check (category_code in ('quick_get', 'collections', 'sending_data', 'preflight'))
         , constraint uk_guide_examples_code unique (example_code)
         , constraint fk_guide_examples_endpoints foreign key (endpoint_id) references arw_endpoints (endpoint_id)
       )]';
@@ -53,12 +54,38 @@ begin
 
 
   -- ===========================================================================
+  -- Categories renamed for the four Guide sections (first schema had
+  -- basics / variables): remap the rows, then re-create the check.
+  -- ===========================================================================
+  select count(1)                                          as widened_n
+    into l_count
+    from user_constraints uc
+   where uc.table_name = 'ARW_GUIDE_EXAMPLES'
+     and uc.constraint_name = 'CK_ARW_GUIDE_EXAMPLES_CATEGORY'
+     and uc.search_condition_vc like '%quick_get%';
+
+  if l_count = 0 then
+    execute immediate 'alter table arw_guide_examples drop constraint ck_arw_guide_examples_category';
+    execute immediate q'[
+      update arw_guide_examples
+         set category_code = case category_code
+                               when 'basics'    then 'quick_get'
+                               when 'variables' then 'collections'
+                               else category_code
+                             end
+       where category_code in ('basics', 'variables')]';
+    execute immediate q'[alter table arw_guide_examples add constraint ck_arw_guide_examples_category check (category_code in ('quick_get', 'collections', 'sending_data', 'preflight'))]';
+    dbms_output.put_line('Re-created ck_arw_guide_examples_category');
+  end if;
+
+
+  -- ===========================================================================
   -- Comments (re-runnable by nature)
   -- ===========================================================================
   execute immediate 'comment on table arw_guide_examples is ''Guide examples (page 910): card text and the example endpoint each card opens.''';
   execute immediate 'comment on column arw_guide_examples.guide_example_id is ''Unique identifier of the guide example.''';
   execute immediate 'comment on column arw_guide_examples.example_code is ''Stable code of the example (e.g. basics_full_url); arw_guide_api matches on it.''';
-  execute immediate 'comment on column arw_guide_examples.category_code is ''Card group: basics, sending_data, variables or preflight.''';
+  execute immediate 'comment on column arw_guide_examples.category_code is ''Card group: quick_get (GET with a full URL), collections (saved requests and variables), sending_data (POST/PUT/PATCH/DELETE) or preflight.''';
   execute immediate 'comment on column arw_guide_examples.title is ''Card title; also the example endpoint name.''';
   execute immediate 'comment on column arw_guide_examples.summary is ''One line on what the example shows.''';
   execute immediate 'comment on column arw_guide_examples.display_seq is ''Order of the card within its category.''';

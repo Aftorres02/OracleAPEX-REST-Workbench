@@ -6,65 +6,136 @@ as
 
   gc_collection_name  constant arw_collections.name%type   := 'Guide examples';
   gc_no_env_name      constant arw_collections.name%type   := 'No environment';
-  gc_environment_name constant arw_environments.name%type  := 'dev';
-  gc_base_url         constant arw_environments.base_url%type := 'https://jsonplaceholder.typicode.com';
-  gc_api_key_value    constant varchar2(30 char)           := 'demo-key-123';
+  -- Two environments with the same paths on different APIs, so switching
+  -- the environment visibly changes where a saved request goes.
+  gc_environments constant varchar2(4000 char) := q'~
+[
+  { "name": "dev",  "base_url": "https://jsonplaceholder.typicode.com",
+    "variables": [ { "name": "api_key", "value": "demo-key-123" }
+                 , { "name": "user_id", "value": "2" }
+                 , { "name": "author",  "value": "ARW guide (dev)" } ] },
+  { "name": "prod", "base_url": "https://dummyjson.com",
+    "variables": [ { "name": "api_key", "value": "prod-key-456" }
+                 , { "name": "user_id", "value": "3" }
+                 , { "name": "author",  "value": "ARW guide (prod)" } ] }
+]
+~';
 
-  -- One entry per Guide card. url is a full URL (sent as written) or a path
-  -- behind the dev environment's {{base_url}}; body is a JSON value sent as
-  -- the request body. "no_env": true puts the example in the "No
-  -- environment" sub-collection, so a full URL on the dev base_url host
-  -- stays a full URL (arw_endpoint_api would store it as a path otherwise).
-  -- Only jsonplaceholder.typicode.com has a network ACL: the httpbin.org
-  -- example is meant to be blocked by the preflight.
+  -- One entry per Guide card, in four sections: quick_get (GET with a
+  -- full URL -- the main use), collections (saved requests on {{base_url}},
+  -- params and {{variables}}), sending_data (DELETE/POST/PUT/PATCH, simplest
+  -- first) and preflight. url is a full URL (sent as written) or a path
+  -- behind the environment's {{base_url}}; body is a JSON value sent as the
+  -- request body. "no_env": true puts the example in the "No environment"
+  -- sub-collection, so a full URL on an environment's host stays a full URL
+  -- (arw_endpoint_api would store it as a path otherwise). An ampersand is
+  -- written \u0026 so SQL*Plus substitution never prompts. Hosts other than
+  -- jsonplaceholder need scripts/grant_guide_hosts.sql; catfact.ninja is
+  -- left without an ACL on purpose.
   gc_examples constant varchar2(32767 char) := q'~
 [
-  { "code": "basics_full_url", "category": "basics", "seq": 10,
-    "title": "Paste any URL",
-    "summary": "A full URL is sent as written -- no collection or environment needed.",
-    "method": "GET", "url": "https://jsonplaceholder.typicode.com/users", "no_env": true },
-  { "code": "basics_path", "category": "basics", "seq": 20,
-    "title": "Path + environment",
-    "summary": "A path goes behind the environment's {{base_url}} (dev).",
+  { "code": "basics_full_url", "category": "quick_get", "seq": 10, "no_env": true,
+    "title": "List of records",
+    "summary": "Paste a URL, press Send. Returns an array.",
+    "method": "GET", "url": "https://jsonplaceholder.typicode.com/users" },
+  { "code": "qg_one", "category": "quick_get", "seq": 20, "no_env": true,
+    "title": "One record",
+    "summary": "An id at the end of the URL returns a single object.",
+    "method": "GET", "url": "https://jsonplaceholder.typicode.com/users/1" },
+  { "code": "qg_filter", "category": "quick_get", "seq": 30, "no_env": true,
+    "title": "Filter with ?params",
+    "summary": "Query params can go straight in the URL.",
+    "method": "GET", "url": "https://jsonplaceholder.typicode.com/comments?postId=1" },
+  { "code": "qg_product", "category": "quick_get", "seq": 40, "no_env": true,
+    "title": "Another API",
+    "summary": "Any public API works once its host has a network ACL.",
+    "method": "GET", "url": "https://dummyjson.com/products/1" },
+  { "code": "qg_fields", "category": "quick_get", "seq": 50, "no_env": true,
+    "title": "Pick fields, limit rows",
+    "summary": "Two params: 5 rows, only title and price.",
+    "method": "GET", "url": "https://dummyjson.com/products?limit=5\u0026select=title,price" },
+  { "code": "qg_search", "category": "quick_get", "seq": 60, "no_env": true,
+    "title": "Search",
+    "summary": "A search endpoint with q=phone.",
+    "method": "GET", "url": "https://dummyjson.com/products/search?q=phone\u0026limit=3" },
+  { "code": "qg_image", "category": "quick_get", "seq": 70, "no_env": true,
+    "title": "Image (PNG)",
+    "summary": "Files are previewed in the Response tab.",
+    "method": "GET", "url": "https://dummyjson.com/image/400x200/008080/ffffff?text=ARW" },
+  { "code": "qg_photo", "category": "quick_get", "seq": 80, "no_env": true,
+    "title": "Photo (JPEG)",
+    "summary": "Another image type.",
+    "method": "GET", "url": "https://httpbin.org/image/jpeg" },
+  { "code": "qg_audio", "category": "quick_get", "seq": 90, "no_env": true,
+    "title": "Audio (MP3)",
+    "summary": "Plays right in the Response tab.",
+    "method": "GET", "url": "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c8/Example.ogg/Example.ogg.mp3" },
+  { "code": "qg_pdf", "category": "quick_get", "seq": 100, "no_env": true,
+    "title": "File (PDF)",
+    "summary": "Shown inline, with a download link.",
+    "method": "GET", "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" },
+  { "code": "qg_xml", "category": "quick_get", "seq": 110, "no_env": true,
+    "title": "XML",
+    "summary": "Text that is not JSON is shown as is.",
+    "method": "GET", "url": "https://httpbin.org/xml" },
+
+  { "code": "basics_path", "category": "collections", "seq": 10,
+    "title": "Path + {{base_url}}",
+    "summary": "A saved request keeps only the path; the environment adds the base.",
     "method": "GET", "url": "/posts/1" },
-  { "code": "basics_query", "category": "basics", "seq": 30,
-    "title": "Query params",
+  { "code": "coll_switch_env", "category": "collections", "seq": 20,
+    "title": "Same request, two environments",
+    "summary": "dev = jsonplaceholder, prod = dummyjson. Change Environment, Send again.",
+    "method": "GET", "url": "/users/1" },
+  { "code": "basics_query", "category": "collections", "seq": 30,
+    "title": "Saved query params",
     "summary": "Params tab, kind query: sends ?userId=1.",
     "method": "GET", "url": "/posts",
     "params": [ { "kind": "query", "name": "userId", "value": "1" } ] },
-  { "code": "basics_path_param", "category": "basics", "seq": 40,
+  { "code": "basics_path_param", "category": "collections", "seq": 40,
     "title": "Path param",
-    "summary": "{id} in the URL takes its value from a path param in the Params tab.",
+    "summary": "{id} in the URL takes its value from the Params tab.",
     "method": "GET", "url": "/posts/{id}/comments",
     "params": [ { "kind": "path", "name": "id", "value": "1" } ] },
-  { "code": "send_post", "category": "sending_data", "seq": 10,
-    "title": "POST JSON",
-    "summary": "Body tab holds the JSON. The fake API answers 201 with a new id.",
-    "method": "POST", "url": "/posts",
-    "body": { "title": "Hello ARW", "body": "Created from the guide", "userId": 1 } },
-  { "code": "send_put", "category": "sending_data", "seq": 20,
-    "title": "PUT (replace)",
-    "summary": "Replaces the whole resource.",
-    "method": "PUT", "url": "/posts/1",
-    "body": { "id": 1, "title": "Replaced", "body": "Full update", "userId": 1 } },
-  { "code": "send_patch", "category": "sending_data", "seq": 30,
-    "title": "PATCH (change one field)",
-    "summary": "Sends only the field that changes.",
-    "method": "PATCH", "url": "/posts/1",
-    "body": { "title": "Only the title changes" } },
-  { "code": "send_delete", "category": "sending_data", "seq": 40,
-    "title": "DELETE",
-    "summary": "Answers 200 with an empty object.",
-    "method": "DELETE", "url": "/posts/1" },
-  { "code": "vars_header", "category": "variables", "seq": 10,
+  { "code": "coll_var_url", "category": "collections", "seq": 50,
+    "title": "Variable in the URL",
+    "summary": "{{user_id}} comes from the environment's variables.",
+    "method": "GET", "url": "/users/{{user_id}}" },
+  { "code": "vars_header", "category": "collections", "seq": 60,
     "title": "Variable in a header",
-    "summary": "{{api_key}} comes from the dev environment's variables (Environments page).",
+    "summary": "Headers tab: X-Api-Key = {{api_key}}.",
     "method": "GET", "url": "/users/1",
     "headers": [ { "name": "X-Api-Key", "value": "{{api_key}}" } ] },
-  { "code": "preflight_blocked", "category": "preflight", "seq": 10,
+
+  { "code": "send_delete", "category": "sending_data", "seq": 10, "no_env": true,
+    "title": "DELETE (no body)",
+    "summary": "The simplest write: just the method and the URL.",
+    "method": "DELETE", "url": "https://jsonplaceholder.typicode.com/posts/1" },
+  { "code": "send_post", "category": "sending_data", "seq": 20, "no_env": true,
+    "title": "POST JSON",
+    "summary": "Body tab holds the JSON; the answer has the new id.",
+    "method": "POST", "url": "https://dummyjson.com/products/add",
+    "body": { "title": "ARW mug", "price": 9.99 } },
+  { "code": "send_put", "category": "sending_data", "seq": 30, "no_env": true,
+    "title": "PUT (replace)",
+    "summary": "Sends the whole record.",
+    "method": "PUT", "url": "https://jsonplaceholder.typicode.com/posts/1",
+    "body": { "id": 1, "title": "Replaced", "body": "Full update", "userId": 1 } },
+  { "code": "send_patch", "category": "sending_data", "seq": 40, "no_env": true,
+    "title": "PATCH (one field)",
+    "summary": "Sends only the field that changes.",
+    "method": "PATCH", "url": "https://dummyjson.com/products/1",
+    "body": { "title": "Renamed by ARW" } },
+  { "code": "coll_post_vars", "category": "sending_data", "seq": 50,
+    "title": "POST with {{variables}}",
+    "summary": "Variables work inside the body too (environment dev).",
+    "method": "POST", "url": "/posts",
+    "body": { "title": "Hello from {{author}}", "body": "Saved request", "userId": 1 } },
+
+  { "code": "preflight_blocked", "category": "preflight", "seq": 10, "no_env": true,
     "title": "Blocked host",
-    "summary": "httpbin.org has no network ACL: Send is refused and Preflight shows the fix script.",
-    "method": "GET", "url": "https://httpbin.org/get" }
+    "summary": "No network ACL for this host on purpose: Send is refused, Preflight shows the fix.",
+    "method": "GET", "url": "https://catfact.ninja/fact" }
 ]
 ~';
 
@@ -80,8 +151,8 @@ as
   -- ===========================================================================
   /**
    * Returns the "Guide examples" collection, creating it when missing, and
-   * makes sure its dev environment (base_url jsonplaceholder) and the
-   * api_key variable exist with their original values.
+   * puts its environments (gc_environments: dev on jsonplaceholder, prod on
+   * dummyjson) and their variables back to their original values.
    *
    * @example
    * -- Private: exercised through install_examples.
@@ -118,32 +189,54 @@ as
                          );
     end if;
 
-    select min(v.environment_id)                           as environment_id
-      into l_environment_id
-      from arw_environments v
-     where v.collection_id = l_collection_id
-       and v.name = gc_environment_name
-       and v.active_yn = 'Y';
+    for l_env in (
+      select je.env_name                                   as env_name
+           , je.base_url                                   as base_url
+           , je.variables_json                             as variables_json
+        from json_table(gc_environments, '$[*]' columns
+               env_name       varchar2(100 char)  path '$.name'
+             , base_url       varchar2(1000 char) path '$.base_url'
+             , variables_json clob format json    path '$.variables'
+             ) je
+    )
+    loop
+      select min(v.environment_id)                         as environment_id
+        into l_environment_id
+        from arw_environments v
+       where v.collection_id = l_collection_id
+         and v.name = l_env.env_name
+         and v.active_yn = 'Y';
 
-    if l_environment_id is null then
-      l_environment_id := arw_environments_api.create_environment(
-                              p_collection_id           => l_collection_id
-                            , p_name                    => gc_environment_name
-                            , p_base_url                => gc_base_url
-                          );
-    else
-      arw_environments_api.update_environment(
-          p_environment_id                      => l_environment_id
-        , p_name                                => gc_environment_name
-        , p_base_url                            => gc_base_url
-      );
-    end if;
+      if l_environment_id is null then
+        l_environment_id := arw_environments_api.create_environment(
+                                p_collection_id         => l_collection_id
+                              , p_name                  => l_env.env_name
+                              , p_base_url              => l_env.base_url
+                            );
+      else
+        arw_environments_api.update_environment(
+            p_environment_id                    => l_environment_id
+          , p_name                              => l_env.env_name
+          , p_base_url                          => l_env.base_url
+        );
+      end if;
 
-    l_variable_id := arw_environments_api.set_variable(
-                         p_environment_id               => l_environment_id
-                       , p_var_name                     => 'api_key'
-                       , p_var_value                    => gc_api_key_value
-                     );
+      for l_var in (
+        select jv.var_name                                 as var_name
+             , jv.var_value                                as var_value
+          from json_table(l_env.variables_json, '$[*]' columns
+                 var_name  varchar2(100 char)  path '$.name'
+               , var_value varchar2(4000 char) path '$.value'
+               ) jv
+      )
+      loop
+        l_variable_id := arw_environments_api.set_variable(
+                             p_environment_id           => l_environment_id
+                           , p_var_name                 => l_var.var_name
+                           , p_var_value                => l_var.var_value
+                         );
+      end loop;
+    end loop;
 
     logger.append_param(l_params, 'l_collection_id', l_collection_id);
     logger.log('END', l_scope, null, l_params);
@@ -509,6 +602,15 @@ as
              , l_endpoint_id
         );
     end loop;
+
+    -- Cards dropped from gc_examples disappear from the Guide
+    update arw_guide_examples g
+       set g.active_yn = 'N'
+     where g.active_yn = 'Y'
+       and g.example_code not in (
+             select jt.example_code
+               from json_table(gc_examples, '$[*]' columns example_code varchar2(50 char) path '$.code') jt
+           );
 
     logger.append_param(l_params, 'l_collection_id', l_collection_id);
     logger.log('END', l_scope, null, l_params);

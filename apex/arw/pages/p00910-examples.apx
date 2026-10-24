@@ -14,7 +14,7 @@ page 910 (
         formAutoComplete: false
     }
     help {
-        helpText: Ready-to-send requests against jsonplaceholder.typicode.com, a free fake REST API. Click a card, press Send. They live in the Guide examples collection; Reset examples puts them back as they were.
+        helpText: Ready-to-send requests against free public test APIs. Click a card, press Send. Start with Quick GET (paste a URL), then saved requests with {{base_url}} and variables, then POST / PUT / PATCH / DELETE. A card marked Needs ACL calls a host the database may not reach yet -- an admin runs scripts/grant_guide_hosts.sql once (the Blocked host card stays blocked on purpose). Reset examples puts every example back as it was.
     }
 
     region examplesHeadSR (
@@ -29,7 +29,7 @@ page 910 (
                 <div class="arw-page-head">
                   <h1 class="arw-page-title">Examples</h1>
                 </div>
-                <p class="arw-muted">Click a card, then press Send.</p>
+                <p class="arw-muted">Click a card, then press Send. <em>Needs ACL</em>: an admin runs <code>scripts/grant_guide_hosts.sql</code> once.</p>
                 ```
         }
         layout {
@@ -42,29 +42,57 @@ page 910 (
         }
     )
 
-    region basicsCR (
+    region quickGetCR (
         advanced {
-            htmlDomId: basicsCR
+            htmlDomId: quickGetCR
         }
-        name: Basics
-        title: Basics
+        name: Quick GET: paste a URL
+        title: Quick GET: paste a URL
         type: cards
         source {
             location: localDatabase
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select g.guide_example_id                                  as guide_example_id
-                     , g.title                                             as title
-                     , g.summary                                           as summary
-                     , s.endpoint_id                                       as endpoint_id
-                     , s.http_method                                       as http_method
-                     , s.display_url                                       as display_url
-                  from arw_guide_examples                  g
-                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
-                 where g.category_code = 'basics'
-                   and g.active_yn = 'Y'
-                 order by g.display_seq
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'quick_get'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
                 ```
         }
         layout {
@@ -93,9 +121,12 @@ page 910 (
             advancedFormatting: false
             column: SUMMARY
         }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
         componentAppearance {
             layout: grid
-            gridColumns: 2
+            gridColumns: 3
         }
         messages {
             whenNoDataFound: No examples yet -- press Reset examples.
@@ -119,29 +150,57 @@ page 910 (
         )
     )
 
-    region sendingDataCR (
+    region collectionsCR (
         advanced {
-            htmlDomId: sendingDataCR
+            htmlDomId: collectionsCR
         }
-        name: Sending data
-        title: Sending data
+        name: Collections and variables
+        title: Collections and variables
         type: cards
         source {
             location: localDatabase
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select g.guide_example_id                                  as guide_example_id
-                     , g.title                                             as title
-                     , g.summary                                           as summary
-                     , s.endpoint_id                                       as endpoint_id
-                     , s.http_method                                       as http_method
-                     , s.display_url                                       as display_url
-                  from arw_guide_examples                  g
-                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
-                 where g.category_code = 'sending_data'
-                   and g.active_yn = 'Y'
-                 order by g.display_seq
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'collections'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
                 ```
         }
         layout {
@@ -170,9 +229,12 @@ page 910 (
             advancedFormatting: false
             column: SUMMARY
         }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
         componentAppearance {
             layout: grid
-            gridColumns: 2
+            gridColumns: 3
         }
         messages {
             whenNoDataFound: No examples yet -- press Reset examples.
@@ -196,29 +258,57 @@ page 910 (
         )
     )
 
-    region variablesCR (
+    region sendingDataCR (
         advanced {
-            htmlDomId: variablesCR
+            htmlDomId: sendingDataCR
         }
-        name: Variables
-        title: Variables
+        name: POST, PUT, PATCH, DELETE
+        title: POST, PUT, PATCH, DELETE
         type: cards
         source {
             location: localDatabase
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select g.guide_example_id                                  as guide_example_id
-                     , g.title                                             as title
-                     , g.summary                                           as summary
-                     , s.endpoint_id                                       as endpoint_id
-                     , s.http_method                                       as http_method
-                     , s.display_url                                       as display_url
-                  from arw_guide_examples                  g
-                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
-                 where g.category_code = 'variables'
-                   and g.active_yn = 'Y'
-                 order by g.display_seq
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'sending_data'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
                 ```
         }
         layout {
@@ -247,9 +337,12 @@ page 910 (
             advancedFormatting: false
             column: SUMMARY
         }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
         componentAppearance {
             layout: grid
-            gridColumns: 2
+            gridColumns: 3
         }
         messages {
             whenNoDataFound: No examples yet -- press Reset examples.
@@ -285,17 +378,45 @@ page 910 (
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select g.guide_example_id                                  as guide_example_id
-                     , g.title                                             as title
-                     , g.summary                                           as summary
-                     , s.endpoint_id                                       as endpoint_id
-                     , s.http_method                                       as http_method
-                     , s.display_url                                       as display_url
-                  from arw_guide_examples                  g
-                  join arw_endpoint_summary_vw             s on s.endpoint_id = g.endpoint_id
-                 where g.category_code = 'preflight'
-                   and g.active_yn = 'Y'
-                 order by g.display_seq
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'preflight'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
                 ```
         }
         layout {
@@ -324,9 +445,12 @@ page 910 (
             advancedFormatting: false
             column: SUMMARY
         }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
         componentAppearance {
             layout: grid
-            gridColumns: 2
+            gridColumns: 3
         }
         messages {
             whenNoDataFound: No examples yet -- press Reset examples.

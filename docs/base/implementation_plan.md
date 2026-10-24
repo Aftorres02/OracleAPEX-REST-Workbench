@@ -503,6 +503,19 @@ versión mínima de la Fase 0.
 >   (idempotente; crea la colección "Guide examples" con su ambiente dev,
 >   la variable `api_key` y la subcolección "No environment") y
 >   `data/arw_seed_guide.sql`.
+> - Ampliación: 23 ejemplos en 4 secciones — **Quick GET** (lo principal:
+>   pegar una URL; lista, un registro, filtros, otra API, imagen PNG/JPEG,
+>   audio MP3, PDF, XML), **Collections and variables** (`{{base_url}}`,
+>   ambientes dev = jsonplaceholder / prod = dummyjson, params guardados,
+>   variables en URL y header), **POST, PUT, PATCH, DELETE** (de lo más
+>   simple a body con variables) y **Preflight**. Las tarjetas marcan
+>   *Needs ACL* cuando el host aún no tiene permiso de red; un ADMIN corre
+>   `scripts/grant_guide_hosts.sql` (dummyjson.com, httpbin.org,
+>   upload.wikimedia.org, www.w3.org).
+> - **Respuestas binarias**: `arw_exec_api` descarga siempre en bruto
+>   (`make_rest_request_b`) y guarda como texto solo si el Content-Type es
+>   textual; si no, en `response_body_blob`. El editor muestra la imagen,
+>   el audio, el vídeo o el PDF y ofrece *Download file*.
 
 ### Fase 2 — Import de colecciones Postman
 

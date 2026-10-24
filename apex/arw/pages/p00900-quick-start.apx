@@ -160,7 +160,7 @@ page 900 (
                 ), w_cards as (
                   select 10                                                as card_seq
                        , 'Examples'                                        as title
-                       , 'Ten ready requests: GET, POST, params, variables.' as body
+                       , 'Ready requests: GET, images, audio, params, variables, POST.' as body
                        , 'fa-flask'                                        as icon
                        , apex_page.get_url(p_page => 910)                  as target_url
                     from dual

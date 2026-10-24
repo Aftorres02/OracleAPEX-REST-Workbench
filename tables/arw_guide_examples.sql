@@ -37,7 +37,7 @@ create table arw_guide_examples (
   , last_updated_by               varchar2(60 char)
   , last_updated_on               timestamp with local time zone
   , constraint ck_arw_guide_examples_active_yn check (active_yn in ('Y', 'N'))
-  , constraint ck_arw_guide_examples_category check (category_code in ('basics', 'sending_data', 'variables', 'preflight'))
+  , constraint ck_arw_guide_examples_category check (category_code in ('quick_get', 'collections', 'sending_data', 'preflight'))
   , constraint uk_guide_examples_code unique (example_code)
   , constraint fk_guide_examples_endpoints foreign key (endpoint_id) references arw_endpoints (endpoint_id)
 );
@@ -56,7 +56,7 @@ begin
   execute immediate 'comment on table arw_guide_examples is ''Guide examples (page 910): card text and the example endpoint each card opens.''';
   execute immediate 'comment on column arw_guide_examples.guide_example_id is ''Unique identifier of the guide example.''';
   execute immediate 'comment on column arw_guide_examples.example_code is ''Stable code of the example (e.g. basics_full_url); arw_guide_api matches on it.''';
-  execute immediate 'comment on column arw_guide_examples.category_code is ''Card group: basics, sending_data, variables or preflight.''';
+  execute immediate 'comment on column arw_guide_examples.category_code is ''Card group: quick_get (GET with a full URL), collections (saved requests and variables), sending_data (POST/PUT/PATCH/DELETE) or preflight.''';
   execute immediate 'comment on column arw_guide_examples.title is ''Card title; also the example endpoint name.''';
   execute immediate 'comment on column arw_guide_examples.summary is ''One line on what the example shows.''';
   execute immediate 'comment on column arw_guide_examples.display_seq is ''Order of the card within its category.''';

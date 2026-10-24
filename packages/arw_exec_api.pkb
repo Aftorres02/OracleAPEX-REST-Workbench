@@ -532,6 +532,7 @@ as
    * @param  p_request_body          Body sent with the request
    * @param  p_response_headers      Headers returned by the service
    * @param  p_response_body_clob    Response body, or the error text when the call failed
+   * @param  p_response_body_blob    Binary response body (image, audio, PDF...); sets response_is_binary_yn = Y
    * @return arw_executions.execution_id%type  Identifier of the inserted row
    */
   function log_execution(
@@ -544,6 +545,7 @@ as
     , p_request_body                            in arw_executions.request_body%type
     , p_response_headers                        in arw_executions.response_headers%type
     , p_response_body_clob                      in arw_executions.response_body_clob%type
+    , p_response_body_blob                      in arw_executions.response_body_blob%type default null
   )
   return arw_executions.execution_id%type
   is
@@ -567,6 +569,8 @@ as
          , request_body
          , response_headers
          , response_body_clob
+         , response_body_blob
+         , response_is_binary_yn
       )
     values (
            p_endpoint_id
@@ -578,6 +582,8 @@ as
          , p_request_body
          , p_response_headers
          , p_response_body_clob
+         , p_response_body_blob
+         , case when p_response_body_blob is not null then 'Y' else 'N' end
       )
     returning execution_id into l_execution_id;
 
@@ -593,6 +599,103 @@ as
       rollback;
       raise;
   end log_execution;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: text_body_of (private)
+  -- ===========================================================================
+  /**
+   * Returns the response body as text when its Content-Type is textual
+   * (text/*, JSON, XML, JavaScript, form-urlencoded, or no Content-Type at
+   * all), decoded with the charset the header names (UTF-8 by default).
+   * Returns null for anything else (images, audio, video, PDF, octet
+   * streams): the caller then keeps the body as a blob. SVG is treated as
+   * an image so the editor can preview it.
+   *
+   * @example N/A -- private package-body unit; exercised through
+   *           execute_endpoint.
+   *
+   * @issue   #25 (Phase 1 - binary responses: images, audio, files)
+   *
+   * @author  Angel Flores (Developer)
+   * @created October 24, 2026
+   *
+   * @param  p_body          Raw response body, as returned by make_rest_request_b
+   * @param  p_content_type  Response Content-Type header value; null when absent
+   * @param  o_is_text       true when the body is textual (even if empty)
+   * @return clob  Decoded body when o_is_text; null otherwise
+   */
+  function text_body_of(
+      p_body                                    in blob
+    , p_content_type                            in varchar2
+    , o_is_text                                 out boolean
+  )
+  return clob
+  is
+    l_scope        logger_logs.scope%type := gc_scope_prefix || 'text_body_of';
+    l_params       logger.tab_param;
+    l_type         varchar2(255 char) := lower(trim(regexp_substr(p_content_type, '^[^;]+')));
+    l_charset      varchar2(100 char);
+    l_csid         number;
+    l_clob         clob;
+    l_dest_offset  integer := 1;
+    l_src_offset   integer := 1;
+    l_lang_context integer := dbms_lob.default_lang_ctx;
+    l_warning      integer;
+  begin
+    logger.append_param(l_params, 'p_content_type', p_content_type);
+    logger.log('START', l_scope, null, l_params);
+
+    o_is_text := l_type is null
+                 or l_type like 'text/%'
+                 or l_type like '%json'
+                 or l_type like '%+json'
+                 or (l_type like '%xml' and l_type != 'image/svg+xml')
+                 or l_type like '%javascript'
+                 or l_type = 'application/x-www-form-urlencoded';
+
+    if not o_is_text then
+      logger.log('END - binary body', l_scope, null, l_params);
+      return null;
+    end if;
+
+    if p_body is null or dbms_lob.getlength(p_body) = 0 then
+      logger.log('END - empty body', l_scope, null, l_params);
+      return null;
+    end if;
+
+    l_charset := trim(both '"' from regexp_substr(p_content_type, 'charset=([^;]+)', 1, 1, 'i', 1));
+    l_csid    := coalesce(
+                     nls_charset_id(utl_i18n.map_charset(l_charset, utl_i18n.generic_context, utl_i18n.iana_to_oracle))
+                   , nls_charset_id('AL32UTF8')
+                 );
+
+    dbms_lob.createtemporary(l_clob, true);
+    dbms_lob.converttoclob(
+        dest_lob                                => l_clob
+      , src_blob                                => p_body
+      , amount                                  => dbms_lob.lobmaxsize
+      , dest_offset                             => l_dest_offset
+      , src_offset                              => l_src_offset
+      , blob_csid                               => l_csid
+      , lang_context                            => l_lang_context
+      , warning                                 => l_warning
+    );
+
+    logger.log('END', l_scope, null, l_params);
+
+    return l_clob;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end text_body_of;
 
 
 
@@ -675,6 +778,9 @@ as
     l_request_headers clob;
 
     l_response_body    clob;
+    l_response_blob    blob;
+    l_response_type    varchar2(255 char);
+    l_is_text          boolean := true;
     l_response_headers clob;
 
     l_start_cs pls_integer;
@@ -846,7 +952,9 @@ as
     l_start_cs := dbms_utility.get_time;
 
     begin
-      l_response_body := apex_web_service.make_rest_request(
+      -- Always fetch raw bytes: the Content-Type decides afterwards whether
+      -- the body is text (stored as a clob) or a file (stored as a blob).
+      l_response_blob := apex_web_service.make_rest_request_b(
           p_url                                 => l_url
         , p_http_method                         => l_http_method
         , p_body                                => l_body
@@ -861,7 +969,21 @@ as
       for i in 1 .. apex_web_service.g_headers.count loop
         l_response_headers := l_response_headers || apex_web_service.g_headers(i).name || ': '
                                || apex_web_service.g_headers(i).value || chr(10);
+
+        if lower(apex_web_service.g_headers(i).name) = 'content-type' then
+          l_response_type := substr(apex_web_service.g_headers(i).value, 1, 255);
+        end if;
       end loop;
+
+      l_response_body := text_body_of(
+                             p_body                     => l_response_blob
+                           , p_content_type             => l_response_type
+                           , o_is_text                  => l_is_text
+                         );
+
+      if l_is_text then
+        l_response_blob := null;
+      end if;
     exception
       when others then
         l_end_cs               := dbms_utility.get_time;
@@ -870,6 +992,7 @@ as
         -- ORA-24247, ORA-29024) sits below the ORA-29273 wrapper, and
         -- arw_execution_log_vw.error_code extracts it from this text.
         l_response_body        := dbms_utility.format_error_stack;
+        l_response_blob        := null;
         -- ORA-29273 is the generic HTTP-failure wrapper (DNS, refused,
         -- SSL, timeout, ...), not timeout-specific -- only the message
         -- text itself reliably says "timeout".
@@ -889,6 +1012,7 @@ as
       , p_request_body                          => l_body
       , p_response_headers                      => l_response_headers
       , p_response_body_clob                    => l_response_body
+      , p_response_body_blob                    => l_response_blob
     );
 
     logger.append_param(l_params, 'l_execution_id', l_execution_id);

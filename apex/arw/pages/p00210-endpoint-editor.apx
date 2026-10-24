@@ -1171,6 +1171,10 @@ page 210 (
                   lc_max_chars                              constant pls_integer := 500000;
                   l_body                                    clob;
                   l_binary_yn                               arw_executions.response_is_binary_yn%type;
+                  l_content_type                            varchar2(255 char);
+                  l_file_url                                varchar2(4000 char);
+                  l_download_url                            varchar2(4000 char);
+                  l_preview                                 varchar2(32767 char);
                 begin
                   if :P210_EXECUTION_ID is null then
                     return null;
@@ -1188,7 +1192,41 @@ page 210 (
                    where x.execution_id = :P210_EXECUTION_ID;
 
                   if l_binary_yn = 'Y' then
-                    l_body := '[binary response body -- not displayed]';
+                    -- A file (image, audio, video, PDF...): preview it inline, always offer the download
+                    select l.content_type                                   as content_type
+                      into l_content_type
+                      from arw_execution_log_vw l
+                     where l.execution_id = :P210_EXECUTION_ID;
+
+                    l_file_url     := apex_page.get_url(
+                                          p_page        => 210
+                                        , p_request     => 'RESPONSE_FILE'
+                                        , p_items       => 'P210_EXECUTION_ID'
+                                        , p_values      => :P210_EXECUTION_ID
+                                      );
+                    l_download_url := apex_page.get_url(
+                                          p_page        => 210
+                                        , p_request     => 'RESPONSE_DOWNLOAD'
+                                        , p_items       => 'P210_EXECUTION_ID'
+                                        , p_values      => :P210_EXECUTION_ID
+                                      );
+
+                    l_preview := case
+                                   when l_content_type like 'image/%'
+                                   then '<img class="arw-media" src="' || apex_escape.html_attribute(l_file_url) || '" alt="Response image">'
+                                   when l_content_type like 'audio/%' or l_content_type = 'application/ogg'
+                                   then '<audio class="arw-media" controls src="' || apex_escape.html_attribute(l_file_url) || '"></audio>'
+                                   when l_content_type like 'video/%'
+                                   then '<video class="arw-media" controls src="' || apex_escape.html_attribute(l_file_url) || '"></video>'
+                                   when l_content_type = 'application/pdf'
+                                   then '<iframe class="arw-media arw-media--doc" title="Response PDF" src="' || apex_escape.html_attribute(l_file_url) || '"></iframe>'
+                                 end;
+
+                    return '<div class="arw-file">'
+                        || l_preview
+                        || '<p><a href="' || apex_escape.html_attribute(l_download_url) || '">Download file</a>'
+                        || ' <span class="arw-muted arw-mono">' || apex_escape.html(coalesce(l_content_type, 'unknown type')) || '</span></p>'
+                        || '</div>';
                   elsif l_body is null or dbms_lob.getlength(l_body) = 0 then
                     l_body := '[empty response body]';
                   elsif dbms_lob.getlength(l_body) > lc_max_chars then
@@ -3645,6 +3683,67 @@ page 210 (
             plsqlExpression:
                 ```plsql
                 :REQUEST = 'DOWNLOAD' and :P210_ENDPOINT_ID is not null
+                ```
+        }
+    )
+
+    process response-file (
+        name: Serve Response File
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_blob                                    blob;
+                  l_content_type                            varchar2(255 char);
+                  l_file_name                               varchar2(200 char);
+                begin
+                  select x.response_body_blob                               as response_body_blob
+                       , coalesce(l.content_type, 'application/octet-stream') as content_type
+                       , 'response-' || x.execution_id
+                         || case
+                              when l.content_type = 'image/png'                 then '.png'
+                              when l.content_type in ('image/jpeg', 'image/jpg') then '.jpg'
+                              when l.content_type = 'image/gif'                 then '.gif'
+                              when l.content_type = 'image/svg+xml'             then '.svg'
+                              when l.content_type = 'image/webp'                then '.webp'
+                              when l.content_type = 'audio/mpeg'                then '.mp3'
+                              when l.content_type in ('audio/ogg', 'application/ogg') then '.ogg'
+                              when l.content_type = 'video/mp4'                 then '.mp4'
+                              when l.content_type = 'application/pdf'           then '.pdf'
+                              else '.bin'
+                            end                                             as file_name
+                    into l_blob
+                       , l_content_type
+                       , l_file_name
+                    from arw_executions                      x
+                    join arw_execution_log_vw                l on l.execution_id = x.execution_id
+                   where x.execution_id = :P210_EXECUTION_ID
+                     and x.response_is_binary_yn = 'Y';
+
+                  sys.htp.init;
+                  sys.owa_util.mime_header(l_content_type, false);
+                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_blob));
+                  sys.htp.p('Content-Disposition: '
+                            || case when :REQUEST = 'RESPONSE_DOWNLOAD' then 'attachment' else 'inline' end
+                            || '; filename="' || l_file_name || '"');
+                  sys.owa_util.http_header_close;
+                  sys.wpg_docload.download_file(l_blob);
+
+                  apex_application.stop_apex_engine;
+                end;
+                ```
+        }
+        execution {
+            sequence: 6
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('RESPONSE_FILE', 'RESPONSE_DOWNLOAD') and :P210_EXECUTION_ID is not null
                 ```
         }
     )
