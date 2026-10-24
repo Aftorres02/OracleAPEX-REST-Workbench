@@ -1,11 +1,8 @@
 app ARW (
     name: ARW - APEX REST Workbench
     logo {
-        type: custom
-        customHtml:
-            ```
-            <span class="arw-logo"><span class="arw-logo__title">REST Workbench</span><span class="arw-logo__sub">arw · schema &OWNER.</span></span>
-            ```
+        type: text
+        text: REST Workbench
     }
     navigation {
         homeUrl: {

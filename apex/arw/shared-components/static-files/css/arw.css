@@ -3,332 +3,148 @@
  * ARW.CSS
  * ==========================================================================
  *
- * @description REST Workbench look and feel on top of Universal Theme
- *              (Vita style): light airy cards, white side navigation,
- *              rounded status chips, monospace for methods/paths/code.
- *              Loaded app-wide via application.apx css.fileUrls.
- *              Class vocabulary shared by every page: arw-chip (+ --ok,
- *              --error, --warn, --info, --method), arw-code,
- *              arw-section-label, arw-card, arw-banner--warn, arw-row,
- *              arw-check (+ __icon--pass|fail|warn|info), arw-urlbar,
- *              arw-mono.
+ * @description Small ARW component classes on top of a native Universal
+ *              Theme. It deliberately does NOT restyle Universal Theme
+ *              itself (no --ut-* overrides, no .t-* layout rules): header,
+ *              navigation, regions, items and buttons stay native. Only
+ *              ARW's own pieces live here -- status chips, code blocks,
+ *              the URL bar, banners and preflight check rows.
+ *              Colors come from Universal Theme variables where one exists.
  * @author      Angel Flores
  * @created     October 2026
- * @issue       PHASE1-25
- * @version     1.0
+ * @issue       #25
+ * @version     2.0
  */
 
 /* ================================================================ */
-/* Design tokens + Universal Theme variable overrides               */
+/* Text helpers                                                     */
 /* ================================================================ */
-html:root {
-  --arw-bg: #eef0f4;
-  --arw-surface: #ffffff;
-  --arw-surface-muted: #f4f5f7;
-  --arw-border: #dfe2e7;
-  --arw-border-strong: #c9ced6;
-  --arw-text: #1f2328;
-  --arw-text-muted: #5b6370;
-  --arw-text-faint: #7a828e;
-  --arw-primary: #1a6ac9;
-  --arw-primary-hover: #1559a8;
-  --arw-primary-soft: #e6f0fb;
-  --arw-ok: #1d7347;
-  --arw-ok-soft: #e2f3e9;
-  --arw-error: #b42329;
-  --arw-error-soft: #fbe3e3;
-  --arw-warn: #8f5300;
-  --arw-warn-soft: #fbe9d4;
-  --arw-info: #0f5aa8;
-  --arw-info-soft: #e3eefb;
-  --arw-radius-lg: 16px;
-  --arw-radius: 10px;
-  --arw-radius-sm: 8px;
-  --arw-font-mono: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-
-  --ut-palette-primary: var(--arw-primary);
-  --ut-body-background-color: var(--arw-bg);
-  --ut-body-text-color: var(--arw-text);
-  --ut-header-height: 4rem;
-  --ut-header-background-color: var(--arw-surface);
-  --ut-header-text-color: var(--arw-text);
-  --ut-header-border-color: var(--arw-border);
-  --ut-header-box-shadow: none;
-  --ut-nav-width: 15rem;
-  --ut-body-nav-background-color: var(--arw-surface);
-  --ut-body-nav-text-color: var(--arw-text);
-  --ut-body-nav-border-color: var(--arw-border);
-  --ut-body-nav-scrollbar-track-background-color: var(--arw-surface);
-  --ut-body-nav-scrollbar-thumb-background-color: rgba(0, 0, 0, .15);
-  --ut-body-title-background-color: var(--arw-bg);
-  --ut-region-border-radius: var(--arw-radius-lg);
-  --ut-region-border-color: var(--arw-border);
-  --ut-region-box-shadow: none;
-  --ut-region-header-background-color: var(--arw-surface);
-  --a-treeview-node-font-size: .9375rem;
-  --a-treeview-node-selected-background-color: var(--arw-primary-soft);
-  --a-treeview-node-selected-text-color: var(--arw-primary);
-  --a-treeview-node-selected-icon-color: var(--arw-primary);
-  --a-treeview-node-focused-background-color: var(--arw-primary-soft);
-  --a-treeview-node-focused-text-color: var(--arw-primary);
+.arw-mono,
+.arw-method,
+.arw-path {
+  font-family: var(--a-base-font-family-monospace, monospace);
 }
 
-/* ================================================================ */
-/* Header + logo ("REST Workbench" / "arw · schema X")               */
-/* ================================================================ */
-.t-Header {
-  border-block-end: 1px solid var(--arw-border);
+.arw-muted,
+.arw-response-footer {
+  color: var(--ut-component-text-muted-color);
 }
 
-.t-Header-logo-link,
-.t-Header-logo-link:hover,
-.t-Header-logo-link:focus {
-  color: var(--arw-text);
-  text-decoration: none;
-}
-
-.arw-logo {
-  display: inline-flex;
-  flex-direction: column;
-  justify-content: center;
-  line-height: 1.2;
-}
-
-.arw-logo__title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--arw-text);
-}
-
-.arw-logo__sub {
-  font-family: var(--arw-font-mono);
+.arw-section-label {
+  margin: 0 0 .5rem;
   font-size: .75rem;
-  color: var(--arw-text-muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ut-component-text-muted-color);
 }
 
-.t-Header .t-Button--header,
-.t-Header .t-Button--navBar {
-  color: var(--arw-text);
-}
-
-/* ================================================================ */
-/* Side navigation: white, expanded, blue left bar on current item   */
-/* ================================================================ */
-.t-Body-nav {
-  border-inline-end: 1px solid var(--arw-border);
-}
-
-.t-TreeNav .a-TreeView-node--topLevel {
-  border-bottom: 0;
-}
-
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-content {
-  color: var(--arw-text);
-}
-
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-content .fa {
-  color: var(--arw-text-faint);
-}
-
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-hover {
-  background-color: var(--arw-surface-muted) !important;
-}
-
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-current,
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-current--top,
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-selected,
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-current--top.is-selected {
-  background-color: var(--arw-primary-soft);
-  color: var(--arw-primary);
-}
-
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-content.is-current--top,
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-content.is-current--top .fa,
-.t-TreeNav .a-TreeView-node--topLevel .a-TreeView-row.is-hover + .a-TreeView-content {
-  color: var(--arw-primary);
-}
-
-.t-TreeNav--styleA .a-TreeView-node--topLevel .a-TreeView-row.is-current--top {
-  box-shadow: inset var(--arw-primary) 4px 0 0;
+.arw-section-label--divided {
+  margin-top: .75rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--ut-component-border-color);
 }
 
 /* ================================================================ */
-/* Body, regions and page titles                                    */
+/* Page header (title + chip on one line)                           */
 /* ================================================================ */
-.t-Body-content {
-  background-color: var(--arw-bg);
-}
-
-.t-Body-contentInner {
-  padding-block-start: 1.5rem;
-}
-
-.t-Region:not(.t-Region--noUI):not(.t-Region--removeHeader.t-Region--noBorder) {
-  border-radius: var(--arw-radius-lg);
-  border-color: var(--arw-border);
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.t-Region-header {
-  border-start-start-radius: var(--arw-radius-lg);
-  border-start-end-radius: var(--arw-radius-lg);
-}
-
-.t-Region-title {
-  font-weight: 600;
-}
-
-.t-IRR-region {
-  border-radius: var(--arw-radius-lg);
-  overflow: hidden;
-}
-
-.t-Button {
-  border-radius: var(--arw-radius-sm);
-}
-
-.t-Button--hot {
-  background-color: var(--arw-primary);
-}
-
-.arw-page-head {
+.arw-page-head,
+.arw-topbar,
+.arw-preflight-head {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-block-end: .5rem;
+  gap: .5rem;
 }
 
 .arw-page-title {
   margin: 0;
-  font-size: 1.75rem;
-  font-weight: 400;
-  line-height: 1.2;
-  color: var(--arw-text);
 }
 
-.arw-page-subtitle {
-  margin: .375rem 0 0;
-  font-family: var(--arw-font-mono);
-  font-size: .9375rem;
-  color: var(--arw-text-muted);
-}
-
-.arw-panel {
-  background-color: var(--arw-surface);
-  border: 1px solid var(--arw-border);
-  border-radius: var(--arw-radius-lg);
-  padding: 1.5rem;
-}
-
-.arw-muted {
-  color: var(--arw-text-muted);
-}
-
-.arw-text-error {
-  color: var(--arw-error);
+.arw-crumbs__sep {
+  margin: 0 .375rem;
+  color: var(--ut-component-text-muted-color);
 }
 
 /* ================================================================ */
-/* Monospace text + section labels                                  */
+/* Chips                                                            */
 /* ================================================================ */
-.arw-mono {
-  font-family: var(--arw-font-mono);
-}
-
-.arw-mono--muted {
-  font-family: var(--arw-font-mono);
-  color: var(--arw-text-muted);
-}
-
-.arw-section-label {
-  display: block;
-  margin: 1.25rem 0 .75rem;
-  font-size: .8125rem;
-  font-weight: 500;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--arw-text-muted);
-}
-
-/* ================================================================ */
-/* Chips (status pills)                                             */
-/* ================================================================ */
-.arw-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 3rem;
-  padding: .3125rem .75rem;
-  border-radius: var(--arw-radius-sm);
-  background-color: var(--arw-surface-muted);
-  color: var(--arw-text-muted);
-  font-size: .875rem;
-  line-height: 1.25rem;
-  white-space: nowrap;
-}
-
-.arw-chip--ok {
-  background-color: var(--arw-ok-soft);
-  color: var(--arw-ok);
-}
-
-.arw-chip--error {
-  background-color: var(--arw-error-soft);
-  color: var(--arw-error);
-}
-
-.arw-chip--warn {
-  background-color: var(--arw-warn-soft);
-  color: var(--arw-warn);
-}
-
-.arw-chip--info {
-  background-color: var(--arw-info-soft);
-  color: var(--arw-info);
-}
-
-.arw-chip--method {
-  background-color: var(--arw-ok-soft);
-  color: var(--arw-ok);
-  font-family: var(--arw-font-mono);
-}
-
-.arw-chip--mono {
-  font-family: var(--arw-font-mono);
-}
-
-.arw-chip--status {
-  font-family: var(--arw-font-mono);
-  min-width: 5.5rem;
-}
-
 .arw-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: .5rem;
-  margin-block-end: 1rem;
+  gap: .375rem;
+}
+
+.arw-chip {
+  display: inline-block;
+  padding: .125rem .5rem;
+  border-radius: 999px;
+  font-size: .8125rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  background-color: rgba(0, 0, 0, .06);
+}
+
+.arw-chip--method,
+.arw-chip--mono,
+.arw-chip--status {
+  font-family: var(--a-base-font-family-monospace, monospace);
+}
+
+.arw-chip--ok,
+.arw-chip--method {
+  background-color: #e3f3e9;
+  color: #1d7347;
+}
+
+.arw-chip--error {
+  background-color: #fbe3e3;
+  color: #b42329;
+}
+
+.arw-chip--warn {
+  background-color: #fbecd9;
+  color: #8f5300;
+}
+
+.arw-chip--info {
+  background-color: #e3eefb;
+  color: #0f5aa8;
+}
+
+.arw-yn--ok {
+  color: #1d7347;
+  font-weight: 600;
+}
+
+.arw-elapsed--error {
+  color: #b42329;
+}
+
+.arw-yn--warn {
+  color: #8f5300;
+  font-weight: 600;
+}
+
+.arw-elapsed {
+  text-align: end;
+  white-space: nowrap;
 }
 
 /* ================================================================ */
-/* Code / JSON blocks                                               */
+/* Code / JSON blocks and the URL bar                               */
 /* ================================================================ */
 .arw-code {
-  display: block;
-  margin: .75rem 0;
-  padding: 1rem 1.25rem;
+  margin: 0;
+  padding: .75rem 1rem;
+  max-height: 35rem;
   overflow: auto;
-  max-height: 32rem;
-  background-color: var(--arw-surface-muted);
-  border: 1px solid var(--arw-border);
-  border-radius: var(--arw-radius);
-  color: var(--arw-text);
-  font-family: var(--arw-font-mono);
-  font-size: .875rem;
-  line-height: 1.6;
   white-space: pre;
-  tab-size: 2;
+  font-family: var(--a-base-font-family-monospace, monospace);
+  font-size: .8125rem;
+  background-color: rgba(0, 0, 0, .04);
+  border: 1px solid var(--ut-component-border-color);
+  border-radius: var(--ut-component-border-radius, 4px);
 }
 
 .arw-code--wrap {
@@ -336,199 +152,107 @@ html:root {
   word-break: break-word;
 }
 
-/* ================================================================ */
-/* Collection cards (native Cards region with card cssClasses)      */
-/* ================================================================ */
-.arw-cards .a-CardView-items {
-  --a-cv-grid-gap: 1.25rem;
+.arw-urlbar {
+  flex: 1 1 auto;
+  padding: .375rem .75rem;
+  font-family: var(--a-base-font-family-monospace, monospace);
+  background-color: rgba(0, 0, 0, .04);
+  border: 1px solid var(--ut-component-border-color);
+  border-radius: var(--ut-component-border-radius, 4px);
+  overflow-wrap: anywhere;
 }
 
-.arw-card,
-.arw-cards .a-CardView {
-  background-color: var(--arw-surface-muted);
-  border: 1px solid var(--arw-border);
-  border-radius: var(--arw-radius-lg);
-  box-shadow: none;
-  transition: border-color .12s ease, background-color .12s ease;
-}
-
-.arw-card:hover,
-.arw-cards .a-CardView:hover {
-  border-color: var(--arw-primary);
-  background-color: var(--arw-surface);
-}
-
-.arw-cards .a-CardView-header {
-  padding: 1.375rem 1.5rem 0;
-}
-
-.arw-cards .a-CardView-title {
-  font-size: 1.25rem;
-  font-weight: 400;
-  color: var(--arw-text);
-}
-
-.arw-cards .a-CardView-subTitle {
-  margin-block-start: .375rem;
-  font-size: .9375rem;
-  color: var(--arw-text-muted);
-}
-
-.arw-cards .a-CardView-body {
-  padding: 0 1.5rem 1.375rem;
-}
-
-/* ================================================================ */
-/* List rows (recent executions, history)                           */
-/* ================================================================ */
-.arw-row {
+.arw-requestbar {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: .875rem 0;
-  border-block-end: 1px solid var(--arw-border);
-}
-
-.arw-rows .t-Report-report {
-  border-block-start: 1px solid var(--arw-border-strong);
-}
-
-.arw-rows .t-Report-cell {
-  padding: .875rem .5rem;
-  border-block-end: 1px solid var(--arw-border);
-  background-color: transparent;
-  vertical-align: middle;
-}
-
-.arw-rows .t-Report-report tr:hover .t-Report-cell {
-  background-color: var(--arw-surface-muted);
-}
-
-.arw-rows .t-Report-cell a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.arw-rows .t-Report-cell a:hover {
-  color: var(--arw-primary);
-}
-
-.arw-method {
-  font-family: var(--arw-font-mono);
-  color: var(--arw-text-muted);
-}
-
-.arw-path {
-  font-family: var(--arw-font-mono);
-  color: var(--arw-text);
-}
-
-.arw-elapsed {
-  font-family: var(--arw-font-mono);
-  color: var(--arw-text-muted);
-  white-space: nowrap;
-}
-
-.arw-elapsed--error {
-  font-family: var(--arw-font-mono);
-  color: var(--arw-error);
-  white-space: nowrap;
+  gap: .5rem;
 }
 
 /* ================================================================ */
 /* Banners                                                          */
 /* ================================================================ */
-.arw-banner {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .875rem 1.25rem;
-  border-radius: var(--arw-radius);
+.arw-banner,
+.arw-banner--warn,
+.arw-banner--error {
+  padding: .5rem .75rem;
+  border-radius: var(--ut-component-border-radius, 4px);
 }
 
 .arw-banner--warn {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .875rem 1.25rem;
-  border-radius: var(--arw-radius);
-  background-color: var(--arw-warn-soft);
-  color: var(--arw-warn);
-}
-
-.arw-banner--info {
-  background-color: var(--arw-info-soft);
-  color: var(--arw-info);
+  background-color: #fbecd9;
+  color: #8f5300;
 }
 
 .arw-banner--error {
-  background-color: var(--arw-error-soft);
-  color: var(--arw-error);
+  background-color: #fbe3e3;
+  color: #b42329;
 }
 
 /* ================================================================ */
-/* URL bar (endpoint editor)                                        */
+/* Classic reports used as plain layout (single-row data blocks)    */
 /* ================================================================ */
-.arw-urlbar {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .625rem .875rem;
-  background-color: var(--arw-surface-muted);
-  border: 1px solid var(--arw-border);
-  border-radius: var(--arw-radius);
-  font-family: var(--arw-font-mono);
-  font-size: 1rem;
-  color: var(--arw-text);
-  overflow-x: auto;
-  white-space: nowrap;
+.arw-plain .t-Report-report,
+.arw-plain .t-Report-cell {
+  border: 0;
+  background: transparent;
+}
+
+.arw-plain .t-Report-pagination,
+.arw-plain .t-Report-links {
+  display: none;
 }
 
 /* ================================================================ */
-/* Preflight checks                                                 */
+/* Code tab artifact list                                           */
 /* ================================================================ */
-.arw-checks .t-Report-report,
-.arw-checks .t-Report-report tbody,
-.arw-checks .t-Report-report tr,
-.arw-checks .t-Report-cell {
+.arw-artifact {
   display: block;
   width: 100%;
-}
-
-.arw-checks .t-Report-cell {
-  padding: 0;
+  padding: .375rem .75rem;
   border: 0;
-  background-color: transparent;
+  border-inline-start: 3px solid transparent;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
 }
 
-.arw-checks .t-Report-report tr:hover .t-Report-cell {
-  background-color: transparent;
+.arw-artifact.is-active {
+  border-inline-start-color: var(--ut-palette-primary);
+  color: var(--ut-palette-primary);
+  background-color: rgba(0, 0, 0, .04);
 }
 
+/* ================================================================ */
+/* Preflight check rows                                             */
+/* ================================================================ */
 .arw-check {
-  display: grid;
-  grid-template-columns: 2.25rem 1fr;
-  column-gap: 1rem;
-  padding: 1.5rem 1.75rem;
-  border-block-start: 1px solid var(--arw-border);
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+}
+
+.arw-check__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.arw-check__title {
+  font-weight: 600;
+}
+
+.arw-check__actions {
+  display: flex;
+  gap: .5rem;
+  margin-top: .5rem;
 }
 
 .arw-check__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  margin-block-start: .125rem;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-  font-size: .9375rem;
+  flex: 0 0 auto;
   font-weight: 700;
-  line-height: 1;
 }
 
 .arw-check__icon--pass {
-  color: var(--arw-ok);
+  color: #1d7347;
 }
 
 .arw-check__icon--pass::before {
@@ -536,7 +260,7 @@ html:root {
 }
 
 .arw-check__icon--fail {
-  color: var(--arw-error);
+  color: #b42329;
 }
 
 .arw-check__icon--fail::before {
@@ -545,122 +269,10 @@ html:root {
 
 .arw-check__icon--warn,
 .arw-check__icon--info {
-  color: var(--arw-warn);
+  color: #8f5300;
 }
 
 .arw-check__icon--warn::before,
 .arw-check__icon--info::before {
   content: "!";
-}
-
-.arw-check__title {
-  font-size: 1.1875rem;
-  color: var(--arw-text);
-}
-
-.arw-check__message {
-  margin-block-start: .375rem;
-  color: var(--arw-text-muted);
-}
-
-.arw-check__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .75rem;
-  margin-block-start: .5rem;
-}
-
-.arw-check .arw-code {
-  white-space: pre-wrap;
-}
-
-.arw-preflight-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.5rem 1.75rem;
-}
-
-.arw-preflight-head .arw-chip {
-  font-size: .9375rem;
-  padding: .5rem 1rem;
-}
-
-/* ================================================================ */
-/* Detail lists (execution detail modal)                            */
-/* ================================================================ */
-.arw-kv {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: .5rem 1.5rem;
-  margin: 0 0 1rem;
-}
-
-.arw-kv dt {
-  color: var(--arw-text-muted);
-}
-
-.arw-kv dd {
-  margin: 0;
-  font-family: var(--arw-font-mono);
-  word-break: break-all;
-}
-
-/* ================================================================ */
-/* Inline report actions                                            */
-/* ================================================================ */
-.arw-set-active {
-  display: inline-flex;
-  padding: .25rem .75rem;
-  border: 1px solid var(--arw-border-strong);
-  border-radius: var(--arw-radius-sm);
-  background-color: var(--arw-surface);
-  color: var(--arw-text);
-  font-size: .8125rem;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.arw-set-active:hover {
-  border-color: var(--arw-primary);
-  color: var(--arw-primary);
-}
-
-.arw-set-active:empty {
-  display: none;
-}
-
-/* ================================================================ */
-/* Single-row detail reports (execution detail modal)               */
-/* ================================================================ */
-.arw-detail .t-Report-report,
-.arw-detail .t-Report-report tbody,
-.arw-detail .t-Report-report tr,
-.arw-detail .t-Report-cell {
-  display: block;
-  width: 100%;
-}
-
-.arw-detail .t-Report-cell {
-  padding: 0;
-  border: 0;
-  background-color: transparent;
-}
-
-.arw-detail .t-Report-report tr:hover .t-Report-cell {
-  background-color: transparent;
-}
-
-.arw-detail .arw-urlbar {
-  margin-block-end: .5rem;
-}
-
-.arw-panel--flush {
-  padding: 0;
-  overflow: hidden;
-}
-
-.arw-panel--flush .arw-check:first-child {
-  border-block-start: 1px solid var(--arw-border);
 }
