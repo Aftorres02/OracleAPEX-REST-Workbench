@@ -1,0 +1,4111 @@
+page 210 (
+    name: Endpoint Editor
+    alias: ENDPOINT-EDITOR
+    title: Endpoint
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration:
+            ```javascript
+            /*
+             * ==========================================================================
+             * PAGE 210 -- ENDPOINT EDITOR
+             * ==========================================================================
+             *
+             * @description Client helpers for the endpoint editor: error reporting for
+             *              Send (page submit) and the AJAX actions (Add sample, Derive,
+             *              Accept), tab switching after Add sample, Code-tab list
+             *              highlight and the .apx bundle selection summary.
+             * @author      ARW (agent D2)
+             * @created     October 2026
+             * @issue       PHASE1-25
+             * @version     1.0
+             */
+            var arw = arw || {};
+
+            arw.endpointEditor = (function(namespace, $, undefined) {
+              'use strict';
+
+              var MODULE_NAME = 'EndpointEditor';
+
+              var CONFIG = {
+                  TABS_REGION: 'responseTabsSR'
+                , TAB_ID_PREFIX: '#SR_'
+                , RESPONSE_REGION: 'responseSR'
+                , PROFILE_REGION: 'profileSR'
+                , ARTIFACT_SELECTOR: '#artifactListCR .arw-artifact'
+                , ACTIVE_CLASS: 'is-active'
+                , ERROR_ITEM: 'P210_ACTION_ERROR'
+                , BUNDLE_ITEM: 'P210_BUNDLE_TYPES'
+                , BUNDLE_SUMMARY_ITEM: 'P210_BUNDLE_SUMMARY'
+                , DOWNLOAD_BUTTON: 'DOWNLOAD'
+              };
+
+              var _PREFIX = '[' + MODULE_NAME + ']';
+              var logger = {
+                  log:     function(msg, data) { console.log(_PREFIX, msg, data || ''); }
+                , warning: function(msg, data) { console.warn(_PREFIX, msg, data || ''); }
+                , error:   function(msg, data) { console.error(_PREFIX, msg, data || ''); }
+              };
+
+              /* ================================================================ */
+              /* Private helpers                                                  */
+              /* ================================================================ */
+
+              /**
+               * Show the error left by the last AJAX action, if any
+               * @returns {boolean} - true when an error was shown
+               */
+              var _reportActionError = function() {
+                var message = apex.item(CONFIG.ERROR_ITEM).getValue();
+                if (!message) {
+                  return false;
+                }
+                apex.message.clearErrors();
+                apex.message.showErrors([{
+                    type: 'error'
+                  , location: 'page'
+                  , message: message
+                  , unsafe: true
+                }]);
+                logger.warning('Action failed', {message: message});
+                return true;
+              };
+
+              /* ================================================================ */
+              /* Public API                                                       */
+              /* ================================================================ */
+
+              /**
+               * Activate the tab of the Tabs Container that shows the given region
+               * @param {string} regionStaticId - Static ID of the tab sub-region
+               */
+              var activateTab = function(regionStaticId) {
+                var tabId = CONFIG.TAB_ID_PREFIX + regionStaticId;
+                var tabs$ = $('#' + CONFIG.TABS_REGION).find('.t-Tabs').first();
+                var tab = null;
+
+                if (tabs$.length && tabs$.data('apex-aTabs')) {
+                  tab = tabs$.aTabs('getTab', tabId);
+                }
+                if (tab) {
+                  tab.makeActive();
+                  return;
+                }
+                var link$ = $('a[href="' + tabId + '"]');
+                if (link$.length) {
+                  link$.first().trigger('click');
+                } else {
+                  logger.warning('Tab not found', {region: regionStaticId});
+                }
+              };
+
+              /**
+               * After Send / Add sample: report a refusal or failure and show the Response tab
+               */
+              var afterSend = function() {
+                _reportActionError();
+                activateTab(CONFIG.RESPONSE_REGION);
+              };
+
+              /**
+               * After Derive data profile: report the error or reveal the profile card
+               */
+              var afterDerive = function() {
+                if (_reportActionError()) {
+                  return;
+                }
+                $('#' + CONFIG.PROFILE_REGION).show();
+                apex.message.showPageSuccess('Data profile derived.');
+              };
+
+              /**
+               * After Accept profile: report the error or confirm
+               */
+              var afterAccept = function() {
+                if (_reportActionError()) {
+                  return;
+                }
+                apex.message.showPageSuccess('Data profile accepted.');
+              };
+
+              /**
+               * Mark one Code-tab list entry as the active one
+               * @param {Element} element - The clicked .arw-artifact button
+               */
+              var markArtifactActive = function(element) {
+                $(CONFIG.ARTIFACT_SELECTOR)
+                  .removeClass(CONFIG.ACTIVE_CLASS)
+                  .attr('aria-pressed', 'false');
+                $(element)
+                  .addClass(CONFIG.ACTIVE_CLASS)
+                  .attr('aria-pressed', 'true');
+              };
+
+              /**
+               * Refresh the "N components selected" text and the Download button state
+               */
+              var updateBundleSummary = function() {
+                var selected = apex.item(CONFIG.BUNDLE_ITEM).getValue() || [];
+                var count = Array.isArray(selected) ? selected.length : String(selected).split(':').filter(Boolean).length;
+
+                apex.item(CONFIG.BUNDLE_SUMMARY_ITEM).setValue(
+                  count + (count === 1 ? ' component selected' : ' components selected')
+                );
+                $('#' + CONFIG.DOWNLOAD_BUTTON).prop('disabled', count === 0);
+              };
+
+              /* ================================================================ */
+              /* Return public API                                                */
+              /* ================================================================ */
+              return {
+                  // Tabs
+                  activateTab: activateTab
+
+                  // Page load: error left by the last Send
+                , reportActionError: _reportActionError
+
+                  // AJAX action callbacks
+                , afterSend: afterSend
+                , afterDerive: afterDerive
+                , afterAccept: afterAccept
+
+                  // Code tab
+                , markArtifactActive: markArtifactActive
+                , updateBundleSummary: updateBundleSummary
+              };
+
+            })(arw, apex.jQuery);
+            ```
+        executeWhenPageLoads:
+            ```javascript
+            arw.endpointEditor.reportActionError();
+            ```
+    }
+    css {
+        inline:
+            ```css
+            /* Page 210 -- only what css/arw.css doesn't cover; layout stays native */
+            .arw-body-template textarea {
+              font-family: var(--a-base-font-family-monospace, monospace);
+            }
+            ```
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result, the derived data profile and the Code tab generates PL/SQL or APEXlang for it.
+    }
+
+    // =========================================================================
+    // Editor card: top bar, request bar, tabs
+    // =========================================================================
+
+    region editorSR (
+        advanced {
+            htmlDomId: editorSR
+        }
+        name: Endpoint Editor
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-editor
+            ]
+        }
+    )
+
+    region topbarCR (
+        advanced {
+            htmlDomId: topbarCR
+        }
+        name: Top Bar
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select apex_page.get_url(p_page => 100)                    as collections_url
+                     , c.name                                              as collection_name
+                     , apex_page.get_url(
+                           p_page        => 200
+                         , p_clear_cache => '200'
+                         , p_items       => 'P200_COLLECTION_ID'
+                         , p_values      => to_char(c.collection_id)
+                       )                                                   as endpoints_url
+                     , coalesce(e.name, 'New request')                     as endpoint_name
+                     , coalesce(env.name, 'none')                          as environment_name
+                  from dual                                d
+                  left join arw_collections                c on c.collection_id = :P210_COLLECTION_ID
+                                                            and c.active_yn = 'Y'
+                  left join arw_endpoints                  e on e.endpoint_id = :P210_ENDPOINT_ID
+                                                            and e.active_yn = 'Y'
+                  left join arw_environments             env on env.environment_id = :P210_ENVIRONMENT_ID
+                ```
+            pageItemsToSubmit: [
+                P210_COLLECTION_ID
+                P210_ENDPOINT_ID
+                P210_ENVIRONMENT_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @editorSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+
+        column COLLECTIONS_URL (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column COLLECTION_NAME (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column ENDPOINTS_URL (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+        column ENDPOINT_NAME (
+            type: plainText
+            heading {
+                heading: Endpoint
+            }
+            layout {
+                sequence: 40
+            }
+            columnFormatting {
+                htmlExpression: <div class="arw-topbar"><nav class="arw-crumbs" aria-label="Breadcrumb"><a href="#COLLECTIONS_URL#">Collections</a><span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span>{if COLLECTION_NAME/}<a href="#ENDPOINTS_URL#">#COLLECTION_NAME#</a>{endif/}{if !COLLECTION_NAME/}Drafts{endif/}<span class="arw-crumbs__sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">#ENDPOINT_NAME#</span></nav></div>
+            }
+        )
+
+        column ENVIRONMENT_NAME (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+    )
+
+    region requestSR (
+        advanced {
+            htmlDomId: requestSR
+        }
+        name: Request Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @editorSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region requestBarCR (
+        advanced {
+            htmlDomId: requestBarCR
+        }
+        name: URL Preview
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_url as (
+                  select e.http_method                                     as http_method
+                       , arw_endpoint_api.display_url(
+                             p_endpoint_id    => e.endpoint_id
+                           , p_environment_id => :P210_ENVIRONMENT_ID
+                         )                                                 as display_url
+                       , arw_endpoint_api.display_url(
+                             p_endpoint_id    => e.endpoint_id
+                         )                                                 as template_url
+                    from arw_endpoints e
+                   where e.endpoint_id = :P210_ENDPOINT_ID
+                     and e.active_yn = 'Y'
+                )
+                select u.http_method                                       as http_method
+                     , u.display_url                                       as display_url
+                     , case
+                         when u.template_url != u.display_url
+                         then u.template_url || ' -- environment ' || coalesce(:ARW_ENV_NAME, 'none')
+                         when arw_endpoint_api.is_absolute_url_yn(p_url => u.display_url) = 'N'
+                         then 'No environment in this collection: add one with a base_url, or enter the full URL'
+                         else 'Full URL -- sent as written, no environment base'
+                       end                                                 as url_note
+                  from w_url u
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+                P210_ENVIRONMENT_ID
+            ]
+        }
+        layout {
+            sequence: 25
+            parentRegion: @editorSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+
+        column HTTP_METHOD (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column URL_NOTE (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+        column DISPLAY_URL (
+            type: plainText
+            heading {
+                heading: URL
+            }
+            layout {
+                sequence: 20
+            }
+            columnFormatting {
+                htmlExpression: <div class="arw-muted arw-mono">&rarr; #DISPLAY_URL#<span class="arw-crumbs__sep" aria-hidden="true">&middot;</span>#URL_NOTE#</div>
+            }
+        )
+
+    )
+
+    region tabsSR (
+        advanced {
+            htmlDomId: tabsSR
+        }
+        name: Endpoint Tabs
+        type: staticContent
+        layout {
+            sequence: 30
+            parentRegion: @editorSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/tabs-container
+            templateOptions: [
+                #DEFAULT#
+                t-TabsRegion-mod--simple
+                js-useLocalStorage
+            ]
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Settings (the endpoint form; Method / URL live in the request bar)
+    // -------------------------------------------------------------------------
+
+    region endpointForm (
+        advanced {
+            htmlDomId: endpointForm
+        }
+        name: Settings
+        title: Settings
+        type: form
+        source {
+            location: localDatabase
+            tableName: ARW_ENDPOINTS
+        }
+        layout {
+            sequence: 50
+            parentRegion: @tabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+        }
+    )
+
+    region generalButtonsSR (
+        advanced {
+            htmlDomId: generalButtonsSR
+        }
+        name: General Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @endpointForm
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Auth
+    // -------------------------------------------------------------------------
+
+    region authSR (
+        advanced {
+            htmlDomId: authSR
+        }
+        name: Auth
+        title: Auth
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @tabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region authButtonsSR (
+        advanced {
+            htmlDomId: authButtonsSR
+        }
+        name: Auth Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @authSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Headers
+    // -------------------------------------------------------------------------
+
+    region headersIG (
+        advanced {
+            htmlDomId: headersIG
+        }
+        name: Headers
+        title: Headers
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select h.header_id                                         as header_id
+                     , h.header_name                                       as header_name
+                     , case
+                         when h.is_sensitive_yn = 'Y' then '********'
+                         else h.header_value
+                       end                                                 as header_value
+                     , h.is_sensitive_yn                                   as is_sensitive_yn
+                  from arw_endpoint_headers h
+                 where h.endpoint_id = :P210_ENDPOINT_ID
+                   and h.active_yn = 'Y'
+                 order by h.header_name
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+            ]
+        }
+        layout {
+            sequence: 30
+            parentRegion: @tabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+        messages {
+            whenNoDataFound: No headers -- add one with Add Row; Send or Save stores it.
+        }
+        toolbar {
+            controls: [
+                searchField
+                actionsMenu
+            ]
+        }
+
+        savedReport PRIMARY (
+            visibility: primary
+            view {
+                default: grid
+            }
+
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    sequence: 0
+                }
+            )
+            displayColumn (
+                column: @HEADER_NAME
+                layout {
+                    sequence: 1
+                }
+            )
+            displayColumn (
+                column: @HEADER_VALUE
+                layout {
+                    sequence: 2
+                }
+            )
+            displayColumn (
+                column: @IS_SENSITIVE_YN
+                layout {
+                    sequence: 3
+                }
+            )
+        )
+
+        column APEX$ROW_ACTION (
+            type: actionsMenu
+            layout {
+                sequence: 10
+            }
+        )
+
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 20
+            }
+        )
+
+        column HEADER_ID (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: HEADER_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column HEADER_NAME (
+            type: textField
+            heading {
+                heading: Header
+            }
+            layout {
+                sequence: 40
+            }
+            validation {
+                valueRequired: true
+                maxLength: 200
+            }
+            source {
+                databaseColumn: HEADER_NAME
+                dataType: varchar2
+            }
+        )
+
+        column HEADER_VALUE (
+            type: textField
+            heading {
+                heading: Value
+            }
+            layout {
+                sequence: 50
+            }
+            validation {
+                maxLength: 4000
+            }
+            source {
+                databaseColumn: HEADER_VALUE
+                dataType: varchar2
+            }
+        )
+
+        column IS_SENSITIVE_YN (
+            type: switch
+            heading {
+                heading: Sensitive
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: IS_SENSITIVE_YN
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: N
+            }
+        )
+
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Params
+    // -------------------------------------------------------------------------
+
+    region paramsIG (
+        advanced {
+            htmlDomId: paramsIG
+        }
+        name: Params
+        title: Params
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select p.param_id                                          as param_id
+                     , p.param_kind_code                                   as param_kind_code
+                     , p.param_name                                        as param_name
+                     , p.param_value                                       as param_value
+                     , p.data_type_code                                    as data_type_code
+                     , p.is_required_yn                                    as is_required_yn
+                  from arw_endpoint_params p
+                 where p.endpoint_id = :P210_ENDPOINT_ID
+                   and p.active_yn = 'Y'
+                 order by p.param_kind_code
+                        , p.param_name
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @tabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+        messages {
+            whenNoDataFound: No params -- add query, path or form params with Add Row; Send or Save stores them.
+        }
+        toolbar {
+            controls: [
+                searchField
+                actionsMenu
+            ]
+        }
+
+        savedReport PRIMARY (
+            visibility: primary
+            view {
+                default: grid
+            }
+
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    sequence: 0
+                }
+            )
+            displayColumn (
+                column: @PARAM_KIND_CODE
+                layout {
+                    sequence: 1
+                }
+            )
+            displayColumn (
+                column: @PARAM_NAME
+                layout {
+                    sequence: 2
+                }
+            )
+            displayColumn (
+                column: @PARAM_VALUE
+                layout {
+                    sequence: 3
+                }
+            )
+            displayColumn (
+                column: @DATA_TYPE_CODE
+                layout {
+                    sequence: 4
+                }
+            )
+            displayColumn (
+                column: @IS_REQUIRED_YN
+                layout {
+                    sequence: 5
+                }
+            )
+        )
+
+        column APEX$ROW_ACTION (
+            type: actionsMenu
+            layout {
+                sequence: 10
+            }
+        )
+
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 20
+            }
+        )
+
+        column PARAM_ID (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: PARAM_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column PARAM_KIND_CODE (
+            type: selectList
+            heading {
+                heading: Kind
+            }
+            layout {
+                sequence: 40
+            }
+            validation {
+                valueRequired: true
+            }
+            lov {
+                type: staticValues
+                staticValues: STATIC2:query;query,path;path,form;form
+                displayExtraValues: false
+                displayNullValue: false
+            }
+            source {
+                databaseColumn: PARAM_KIND_CODE
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: query
+            }
+        )
+
+        column PARAM_NAME (
+            type: textField
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 50
+            }
+            validation {
+                valueRequired: true
+                maxLength: 200
+            }
+            source {
+                databaseColumn: PARAM_NAME
+                dataType: varchar2
+            }
+        )
+
+        column PARAM_VALUE (
+            type: textField
+            heading {
+                heading: Value
+            }
+            layout {
+                sequence: 60
+            }
+            validation {
+                maxLength: 4000
+            }
+            source {
+                databaseColumn: PARAM_VALUE
+                dataType: varchar2
+            }
+        )
+
+        column DATA_TYPE_CODE (
+            type: selectList
+            heading {
+                heading: Data Type
+            }
+            layout {
+                sequence: 70
+            }
+            validation {
+                valueRequired: true
+            }
+            lov {
+                type: staticValues
+                staticValues: STATIC2:varchar2;varchar2,number;number,date;date,boolean;boolean
+                displayExtraValues: false
+                displayNullValue: false
+            }
+            source {
+                databaseColumn: DATA_TYPE_CODE
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: varchar2
+            }
+        )
+
+        column IS_REQUIRED_YN (
+            type: switch
+            heading {
+                heading: Required
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: IS_REQUIRED_YN
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: N
+            }
+        )
+
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Body
+    // -------------------------------------------------------------------------
+
+    region bodySR (
+        advanced {
+            htmlDomId: bodySR
+        }
+        name: Body
+        title: Body
+        type: staticContent
+        layout {
+            sequence: 40
+            parentRegion: @tabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Response (+ derived data profile)
+    // -------------------------------------------------------------------------
+
+    region responseTabsSR (
+        advanced {
+            htmlDomId: responseTabsSR
+        }
+        name: Result Tabs
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/tabs-container
+            templateOptions: [
+                #DEFAULT#
+                t-TabsRegion-mod--simple
+            ]
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
+
+    region responseSR (
+        advanced {
+            htmlDomId: responseSR
+        }
+        name: Response
+        title: Response
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @responseTabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
+
+    region responseChipsCR (
+        advanced {
+            htmlDomId: responseChipsCR
+        }
+        name: Response Status
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select l.status_label                                      as status_label
+                     , l.status_text                                       as status_text
+                     , l.status_class                                      as status_class
+                     , l.elapsed_ms                                        as elapsed_ms
+                     , case
+                         when l.response_size_bytes is null then null
+                         when l.response_size_bytes < 1024
+                         then l.response_size_bytes || ' B'
+                         when l.response_size_bytes < 1048576
+                         then to_char(l.response_size_bytes / 1024, 'fm999990.0') || ' KB'
+                         else to_char(l.response_size_bytes / 1048576, 'fm999990.0') || ' MB'
+                       end                                                 as size_label
+                     , l.content_type                                      as content_type
+                     , l.error_code                                        as error_code
+                  from arw_execution_log_vw l
+                 where l.execution_id = :P210_EXECUTION_ID
+                ```
+            pageItemsToSubmit: [
+                P210_EXECUTION_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @responseSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: This endpoint has not been sent yet -- press Send to execute it from the database.
+        }
+
+        column STATUS_LABEL (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 10
+            }
+            columnFormatting {
+                htmlExpression: <div class="arw-chips"><span class="arw-chip arw-chip--#STATUS_CLASS#">#STATUS_LABEL# #STATUS_TEXT#</span>{if ERROR_CODE/}<span class="arw-chip arw-chip--error arw-mono">#ERROR_CODE#</span>{endif/}<span class="arw-chip">#ELAPSED_MS# ms</span>{if SIZE_LABEL/}<span class="arw-chip">#SIZE_LABEL#</span>{endif/}{if CONTENT_TYPE/}<span class="arw-chip">#CONTENT_TYPE#</span>{endif/}<span class="arw-chip arw-chip--info">Executed from the database</span></div>
+            }
+        )
+
+        column STATUS_TEXT (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column STATUS_CLASS (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+        column ELAPSED_MS (
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column SIZE_LABEL (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column CONTENT_TYPE (
+            type: hidden
+            layout {
+                sequence: 60
+            }
+        )
+
+        column ERROR_CODE (
+            type: hidden
+            layout {
+                sequence: 70
+            }
+        )
+
+    )
+
+    region responseBodyDC (
+        advanced {
+            htmlDomId: responseBodyDC
+        }
+        name: Response Body
+        type: dynamicContent
+        source {
+            language: plsql
+            plsqlFunctionBody:
+                ```plsql
+                declare
+                  lc_max_chars                              constant pls_integer := 500000;
+                  l_body                                    clob;
+                  l_binary_yn                               arw_executions.response_is_binary_yn%type;
+                  l_content_type                            varchar2(255 char);
+                  l_file_url                                varchar2(4000 char);
+                  l_download_url                            varchar2(4000 char);
+                  l_preview                                 varchar2(32767 char);
+                  l_lang                                    varchar2(20 char);
+                begin
+                  if :P210_EXECUTION_ID is null then
+                    return null;
+                  end if;
+
+                  select case
+                           when x.response_body_clob is json
+                           then json_serialize(x.response_body_clob returning clob pretty)
+                           else x.response_body_clob
+                         end                                                 as body_text
+                       , x.response_is_binary_yn                             as response_is_binary_yn
+                       , case
+                           when x.response_body_clob is json                   then 'json'
+                           when dbms_lob.substr(x.response_body_clob, 1, 1) = '<' then 'markup'
+                           else 'none'
+                         end                                                 as lang
+                    into l_body
+                       , l_binary_yn
+                       , l_lang
+                    from arw_executions x
+                   where x.execution_id = :P210_EXECUTION_ID;
+
+                  if l_binary_yn = 'Y' then
+                    -- A file (image, audio, video, PDF...): preview it inline, always offer the download
+                    select l.content_type                                   as content_type
+                      into l_content_type
+                      from arw_execution_log_vw l
+                     where l.execution_id = :P210_EXECUTION_ID;
+
+                    l_file_url     := apex_page.get_url(
+                                          p_page        => 210
+                                        , p_request     => 'RESPONSE_FILE'
+                                        , p_items       => 'P210_EXECUTION_ID'
+                                        , p_values      => :P210_EXECUTION_ID
+                                      );
+                    l_download_url := apex_page.get_url(
+                                          p_page        => 210
+                                        , p_request     => 'RESPONSE_DOWNLOAD'
+                                        , p_items       => 'P210_EXECUTION_ID'
+                                        , p_values      => :P210_EXECUTION_ID
+                                      );
+
+                    l_preview := case
+                                   when l_content_type like 'image/%'
+                                   then '<img class="arw-media" src="' || apex_escape.html_attribute(l_file_url) || '" alt="Response image">'
+                                   when l_content_type like 'audio/%' or l_content_type = 'application/ogg'
+                                   then '<audio class="arw-media" controls src="' || apex_escape.html_attribute(l_file_url) || '"></audio>'
+                                   when l_content_type like 'video/%'
+                                   then '<video class="arw-media" controls src="' || apex_escape.html_attribute(l_file_url) || '"></video>'
+                                   when l_content_type = 'application/pdf'
+                                   then '<iframe class="arw-media arw-media--doc" title="Response PDF" src="' || apex_escape.html_attribute(l_file_url) || '"></iframe>'
+                                 end;
+
+                    return '<div class="arw-file">'
+                        || l_preview
+                        || '<p><a href="' || apex_escape.html_attribute(l_download_url) || '">Download file</a>'
+                        || ' <span class="arw-muted arw-mono">' || apex_escape.html(coalesce(l_content_type, 'unknown type')) || '</span></p>'
+                        || '</div>';
+                  elsif l_body is null or dbms_lob.getlength(l_body) = 0 then
+                    l_body := '[empty response body]';
+                  elsif dbms_lob.getlength(l_body) > lc_max_chars then
+                    l_body := substr(l_body, 1, lc_max_chars)
+                           || chr(10) || '... [truncated -- showing the first ' || lc_max_chars || ' characters]';
+                  end if;
+
+                  -- arw-code.js adds the Copy button and the syntax colors
+                  return '<pre class="arw-code arw-code--response" data-lang="' || l_lang || '">'
+                      || apex_escape.html_clob(p_string => l_body)
+                      || '</pre>';
+                exception
+                  when no_data_found then
+                    return null;
+                end;
+                ```
+            pageItemsToSubmit: [
+                P210_EXECUTION_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            parentRegion: @responseSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region responseFooterCR (
+        advanced {
+            htmlDomId: responseFooterCR
+        }
+        name: Samples
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select arw_discover_api.sample_count(
+                           p_endpoint_id => :P210_ENDPOINT_ID
+                       )                                                   as sample_count
+                     , case
+                         when exists (
+                                select 1
+                                  from arw_response_samples s
+                                 where s.execution_id = :P210_EXECUTION_ID
+                                   and s.active_yn = 'Y'
+                              )
+                         then 'Y'
+                       end                                                 as sample_saved_yn
+                     , case
+                         when :P210_EXECUTION_ID is not null then 'Y'
+                       end                                                 as executed_yn
+                  from dual
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+                P210_EXECUTION_ID
+            ]
+        }
+        layout {
+            sequence: 30
+            parentRegion: @responseSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+
+        column SAMPLE_COUNT (
+            type: plainText
+            heading {
+                heading: Samples
+            }
+            layout {
+                sequence: 10
+            }
+            columnFormatting {
+                htmlExpression: <span class="arw-response-footer">{if SAMPLE_SAVED_YN/}Sample saved &mdash; {endif/}{if !SAMPLE_SAVED_YN/}{if EXECUTED_YN/}Last response not saved as a sample (only successful JSON responses are) &mdash; {endif/}{endif/}#SAMPLE_COUNT# collected for this endpoint</span>
+            }
+        )
+
+        column SAMPLE_SAVED_YN (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column EXECUTED_YN (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+    )
+
+    region profileSR (
+        advanced {
+            htmlDomId: profileSR
+        }
+        name: Derived data profile
+        title: Derived data profile
+        type: staticContent
+        layout {
+            sequence: 40
+            parentRegion: @responseSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region profileHeaderCR (
+        advanced {
+            htmlDomId: profileHeaderCR
+        }
+        name: Profile Summary
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select case p.sample_count
+                         when 1 then '1 sample consolidated'
+                         else coalesce(p.sample_count, 0) || ' samples consolidated'
+                       end                                                 as samples_label
+                     , coalesce(p.row_selector, '(root)')                  as row_selector
+                     , p.profile_status_code                               as profile_status_code
+                  from arw_data_profiles p
+                 where p.data_profile_id = :P210_DATA_PROFILE_ID
+                   and p.active_yn = 'Y'
+                ```
+            pageItemsToSubmit: [
+                P210_DATA_PROFILE_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @profileSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No data profile yet -- send the request a few times, then Derive data profile.
+        }
+
+        column SAMPLES_LABEL (
+            type: plainText
+            heading {
+                heading: Samples
+            }
+            layout {
+                sequence: 10
+            }
+            columnFormatting {
+                htmlExpression: <div class="arw-chips"><span class="arw-chip">#SAMPLES_LABEL#</span><span class="arw-chip arw-mono">rowSelector: #ROW_SELECTOR#</span>{case PROFILE_STATUS_CODE/}{when accepted/}<span class="arw-chip arw-chip--ok">accepted</span>{otherwise/}<span class="arw-chip arw-chip--warn">editable proposal</span>{endcase/}</div>
+            }
+        )
+
+        column ROW_SELECTOR (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column PROFILE_STATUS_CODE (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+    )
+
+    region profileColumnsCR (
+        advanced {
+            htmlDomId: profileColumnsCR
+        }
+        name: Profile Columns
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.column_id                                         as column_id
+                     , c.column_name                                       as column_name
+                     , substr(sys_connect_by_path(c.path_expression, '[*].'), 5) as path_label
+                     , arw_discover_api.data_type_label(
+                           p_data_type_code => c.data_type_code
+                       )                                                   as data_type_label
+                     , c.max_observed_length                               as max_observed_length
+                     , c.is_nullable_yn                                    as is_nullable_yn
+                     , c.is_primary_key_yn                                 as is_primary_key_yn
+                  from arw_profile_columns c
+                 where c.active_yn = 'Y'
+                 start with c.data_profile_id = :P210_DATA_PROFILE_ID
+                        and c.parent_column_id is null
+                        and c.active_yn = 'Y'
+                 connect by prior c.column_id = c.parent_column_id
+                 order siblings by c.sequence_num
+                                 , c.column_id
+                ```
+            pageItemsToSubmit: [
+                P210_DATA_PROFILE_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            parentRegion: @profileSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--horizontalBorders
+            ]
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No columns in this profile.
+        }
+
+        column COLUMN_ID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column COLUMN_NAME (
+            type: link
+            heading {
+                heading: Column
+            }
+            layout {
+                sequence: 20
+            }
+            link {
+                target: {
+                    page: 215
+                    items: {
+                        P215_COLUMN_ID: #COLUMN_ID#
+                    }
+                    clearCache: 215
+                }
+                linkText: #COLUMN_NAME#
+                linkAttributes: class="arw-mono" title="Edit column"
+            }
+        )
+
+        column PATH_LABEL (
+            type: plainText
+            heading {
+                heading: Path
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression: <span class="arw-mono">#PATH_LABEL#</span>
+            }
+        )
+
+        column DATA_TYPE_LABEL (
+            type: plainText
+            heading {
+                heading: Inferred type
+            }
+            layout {
+                sequence: 40
+            }
+            columnFormatting {
+                htmlExpression: <span class="arw-mono">#DATA_TYPE_LABEL#</span>
+            }
+        )
+
+        column MAX_OBSERVED_LENGTH (
+            type: plainText
+            heading {
+                heading: Length
+                alignment: end
+            }
+            layout {
+                sequence: 50
+                columnAlignment: end
+            }
+            columnFormatting {
+                htmlExpression: {if MAX_OBSERVED_LENGTH/}<span class="arw-mono">#MAX_OBSERVED_LENGTH#</span>{endif/}{if !MAX_OBSERVED_LENGTH/}&mdash;{endif/}
+            }
+        )
+
+        column IS_NULLABLE_YN (
+            type: plainText
+            heading {
+                heading: Null
+                alignment: center
+            }
+            layout {
+                sequence: 60
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: {case IS_NULLABLE_YN/}{when Y/}<span class="arw-mono arw-yn--warn">Y</span>{otherwise/}<span class="arw-mono">N</span>{endcase/}
+            }
+        )
+
+        column IS_PRIMARY_KEY_YN (
+            type: plainText
+            heading {
+                heading: PK
+                alignment: center
+            }
+            layout {
+                sequence: 70
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: {case IS_PRIMARY_KEY_YN/}{when Y/}<span class="arw-mono arw-yn--ok">Y</span>{otherwise/}<span class="arw-mono">N</span>{endcase/}
+            }
+        )
+
+    )
+
+    region profileNotesCR (
+        advanced {
+            htmlDomId: profileNotesCR
+        }
+        name: Profile Notes
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_notes as (
+                  select 'mask'                                            as note_kind
+                       , c.column_name || ' ' || to_char(unistr('\2014'))
+                         || ' formatMask: ' || c.format_mask               as note_text
+                       , c.sequence_num                                    as sort_key
+                    from arw_profile_columns c
+                   where c.data_profile_id = :P210_DATA_PROFILE_ID
+                     and c.active_yn = 'Y'
+                     and c.format_mask is not null
+                  union all
+                  select 'warn'                                            as note_kind
+                       , c.column_name || ' ' || c.observation_note        as note_text
+                       , 100000 + c.sequence_num                           as sort_key
+                    from arw_profile_columns c
+                   where c.data_profile_id = :P210_DATA_PROFILE_ID
+                     and c.active_yn = 'Y'
+                     and c.observation_note is not null
+                )
+                select n.note_kind                                         as note_kind
+                     , n.note_text                                         as note_text
+                  from w_notes n
+                 order by n.sort_key
+                ```
+            pageItemsToSubmit: [
+                P210_DATA_PROFILE_ID
+            ]
+        }
+        layout {
+            sequence: 30
+            parentRegion: @profileSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No format masks or observations.
+        }
+
+        column NOTE_KIND (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column NOTE_TEXT (
+            type: plainText
+            heading {
+                heading: Note
+            }
+            layout {
+                sequence: 20
+            }
+            columnFormatting {
+                htmlExpression: {case NOTE_KIND/}{when warn/}<div class="arw-banner--warn"><span class="fa fa-exclamation-circle-o" aria-hidden="true"></span> #NOTE_TEXT#</div>{otherwise/}<div class="arw-profile-note arw-mono">#NOTE_TEXT#</div>{endcase/}
+            }
+        )
+
+    )
+
+    region profileButtonsSR (
+        advanced {
+            htmlDomId: profileButtonsSR
+        }
+        name: Profile Buttons
+        type: staticContent
+        layout {
+            sequence: 40
+            parentRegion: @profileSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // Tab: Code
+    // -------------------------------------------------------------------------
+
+    region codeSR (
+        advanced {
+            htmlDomId: codeSR
+        }
+        name: Code
+        title: Code
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @responseTabsSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
+
+    region artifactListCR (
+        advanced {
+            htmlDomId: artifactListCR
+        }
+        name: Artifacts
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_artifacts as (
+                  select 'label'           as row_kind, null              as artifact_type_code, 'PASTE'             as artifact_label, null as divided_yn, 10  as sort_key from dual union all
+                  select 'item'            as row_kind, 'plsql_package'   as artifact_type_code, '_api package'      as artifact_label, null as divided_yn, 20  as sort_key from dual union all
+                  select 'item'            as row_kind, 'plsql_block'     as artifact_type_code, 'Anonymous block'   as artifact_label, null as divided_yn, 30  as sort_key from dual union all
+                  select 'item'            as row_kind, 'json_table'      as artifact_type_code, 'json_table'        as artifact_label, null as divided_yn, 40  as sort_key from dual union all
+                  select 'item'            as row_kind, 'table_ddl'       as artifact_type_code, 'Target table DDL'  as artifact_label, null as divided_yn, 50  as sort_key from dual union all
+                  select 'item'            as row_kind, 'curl'            as artifact_type_code, 'cURL'              as artifact_label, null as divided_yn, 60  as sort_key from dual union all
+                  select 'label'           as row_kind, null              as artifact_type_code, 'INSTALL (.apx)'    as artifact_label, 'Y'  as divided_yn, 70  as sort_key from dual union all
+                  select 'item'            as row_kind, 'apexlang_rds'    as artifact_type_code, 'restDataSource'    as artifact_label, null as divided_yn, 80  as sort_key from dual union all
+                  select 'item'            as row_kind, 'apexlang_install_script' as artifact_type_code, 'installScript' as artifact_label, null as divided_yn, 90 as sort_key from dual union all
+                  select 'item'            as row_kind, 'apexlang_ai_tool' as artifact_type_code, 'aiAgent tool'     as artifact_label, null as divided_yn, 100 as sort_key from dual union all
+                  select 'item'            as row_kind, 'apexlang_automation' as artifact_type_code, 'automation'    as artifact_label, null as divided_yn, 110 as sort_key from dual
+                )
+                select a.row_kind                                          as row_kind
+                     , a.artifact_type_code                                as artifact_type_code
+                     , a.artifact_label                                    as artifact_label
+                     , a.divided_yn                                        as divided_yn
+                     , case
+                         when a.artifact_type_code = :P210_ARTIFACT_TYPE then 'Y'
+                       end                                                 as active_yn
+                  from w_artifacts a
+                 order by a.sort_key
+                ```
+            pageItemsToSubmit: [
+                P210_ARTIFACT_TYPE
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @codeSR
+            slot: SUB_REGIONS
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+
+        column ROW_KIND (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column ARTIFACT_TYPE_CODE (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column ARTIFACT_LABEL (
+            type: plainText
+            heading {
+                heading: Artifact
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression: {case ROW_KIND/}{when label/}<div class="arw-section-label{if DIVIDED_YN/} arw-section-label--divided{endif/}">#ARTIFACT_LABEL#</div>{otherwise/}<button type="button" class="arw-artifact{if ACTIVE_YN/} is-active{endif/}" data-artifact="#ARTIFACT_TYPE_CODE#">#ARTIFACT_LABEL#</button>{endcase/}
+            }
+        )
+
+        column DIVIDED_YN (
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column ACTIVE_YN (
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+    )
+
+    region codePanelSR (
+        advanced {
+            htmlDomId: codePanelSR
+        }
+        name: Code Panel
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @codeSR
+            slot: SUB_REGIONS
+            startNewRow: false
+            newColumn: true
+            columnSpan: 9
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region codeChipsCR (
+        advanced {
+            htmlDomId: codeChipsCR
+        }
+        name: Target Profile Settings
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select e.runtime_target_code                               as runtime_target_code
+                     , tp.trace_mode_code                                  as trace_mode_code
+                     , case tp.audit_enabled_yn
+                         when 'Y' then 'yes'
+                         when 'N' then 'no'
+                       end                                                 as audit_label
+                  from arw_endpoints                       e
+                  left join arw_target_profiles           tp on tp.target_profile_id = coalesce(
+                                                                    to_number(:P210_TARGET_PROFILE_ID)
+                                                                  , arw_target_profiles_api.default_profile_id
+                                                                )
+                                                             and tp.active_yn = 'Y'
+                 where e.endpoint_id = :P210_ENDPOINT_ID
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+                P210_TARGET_PROFILE_ID
+            ]
+        }
+        layout {
+            sequence: 10
+            parentRegion: @codePanelSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-plain
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--noBorders
+                t-Report--rowHighlightOff
+            ]
+        }
+        heading {
+            type: none
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+
+        column RUNTIME_TARGET_CODE (
+            type: plainText
+            heading {
+                heading: Settings
+            }
+            layout {
+                sequence: 10
+            }
+            columnFormatting {
+                htmlExpression: <div class="arw-chips"><span class="arw-chip">Runtime: #RUNTIME_TARGET_CODE#</span>{if TRACE_MODE_CODE/}<span class="arw-chip">Tracing: #TRACE_MODE_CODE#</span><span class="arw-chip">Audit: #AUDIT_LABEL#</span>{endif/}{if !TRACE_MODE_CODE/}<span class="arw-chip arw-chip--warn">No target profile</span>{endif/}</div>
+            }
+        )
+
+        column TRACE_MODE_CODE (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column AUDIT_LABEL (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+    )
+
+    region codeDC (
+        advanced {
+            htmlDomId: codeDC
+        }
+        name: Generated Code
+        type: dynamicContent
+        source {
+            language: plsql
+            plsqlFunctionBody:
+                ```plsql
+                declare
+                  l_code                                    clob;
+                  l_message                                 varchar2(4000 char);
+                begin
+                  if :P210_ENDPOINT_ID is null or :P210_ARTIFACT_TYPE is null then
+                    return null;
+                  end if;
+
+                  l_code := arw_codegen_api.get_artifact(
+                                p_endpoint_id                 => :P210_ENDPOINT_ID
+                              , p_artifact_type_code          => :P210_ARTIFACT_TYPE
+                              , p_target_profile_id           => :P210_TARGET_PROFILE_ID
+                            );
+
+                  if l_code is null or dbms_lob.getlength(l_code) = 0 then
+                    return '<p class="arw-code-empty">Nothing was generated for this artifact.</p>';
+                  end if;
+
+                  -- arw-code.js adds the Copy button and the syntax colors
+                  return '<pre class="arw-code arw-code--source" data-lang="'
+                      || case
+                           when :P210_ARTIFACT_TYPE = 'curl'           then 'bash'
+                           when :P210_ARTIFACT_TYPE like 'apexlang%'   then 'apexlang'
+                           else 'plsql'
+                         end
+                      || '">'
+                      || apex_escape.html_clob(p_string => l_code)
+                      || '</pre>';
+                exception
+                  when others then
+                    l_message := case
+                                   when sqlcode between -20999 and -20000
+                                   then regexp_replace(
+                                            regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                          , '^ORA-[0-9]+: '
+                                        )
+                                   else 'The code could not be generated. See the debug log for details.'
+                                 end;
+                    apex_debug.error(
+                        p_message                     => 'Code generation failed for endpoint %s / %s: %s'
+                      , p0                            => :P210_ENDPOINT_ID
+                      , p1                            => :P210_ARTIFACT_TYPE
+                      , p2                            => sqlerrm
+                    );
+                    return '<div class="arw-banner--warn">' || apex_escape.html(p_string => l_message) || '</div>';
+                end;
+                ```
+            pageItemsToSubmit: [
+                P210_ENDPOINT_ID
+                P210_ARTIFACT_TYPE
+                P210_TARGET_PROFILE_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            parentRegion: @codePanelSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region codeFooterSR (
+        advanced {
+            htmlDomId: codeFooterSR
+        }
+        name: Bundle
+        type: staticContent
+        layout {
+            sequence: 30
+            parentRegion: @codePanelSR
+            slot: SUB_REGIONS
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // -------------------------------------------------------------------------
+    // {params}: hidden page state
+    // -------------------------------------------------------------------------
+
+    region paramsSR (
+        advanced {
+            htmlDomId: paramsSR
+        }
+        name: {params}
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: BODY
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    // =========================================================================
+    // Items: General (form region)
+    // =========================================================================
+
+    pageItem P210_ENDPOINT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @endpointForm
+            slot: regionBody
+        }
+        source {
+            formRegion: @endpointForm
+            column: ENDPOINT_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P210_COLLECTION_ID (
+        type: selectList
+        label {
+            label: Collection
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.name                                              as display_value
+                     , c.collection_id                                     as return_value
+                  from arw_collections c
+                 where c.active_yn = 'Y'
+                 order by c.name
+                ```
+            displayExtraValues: false
+            displayNullValue: true
+            nullDisplayValue: - Drafts -
+        }
+        layout {
+            sequence: 20
+            region: @endpointForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            formRegion: @endpointForm
+            column: COLLECTION_ID
+            dataType: number
+        }
+        help {
+            inlineHelpText: Change it and Save to move the request (e.g. out of Drafts)
+        }
+    )
+
+    pageItem P210_NAME (
+        type: textField
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @endpointForm
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 200
+        }
+        source {
+            formRegion: @endpointForm
+            column: NAME
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: Empty takes the method and URL (GET /users)
+        }
+    )
+
+    pageItem P210_HTTP_METHOD (
+        type: selectList
+        label {
+            label: Method
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:GET;GET,POST;POST,PUT;PUT,PATCH;PATCH,DELETE;DELETE,HEAD;HEAD,OPTIONS;OPTIONS
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 40
+            region: @requestSR
+            slot: regionBody
+            alignment: left
+            columnSpan: 2
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @endpointForm
+            column: HTTP_METHOD
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: GET
+        }
+    )
+
+    pageItem P210_URL_PATH (
+        type: textField
+        label {
+            label: URL
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @requestSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 8
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        validation {
+            valueRequired: true
+            maxLength: 1000
+        }
+        source {
+            formRegion: @endpointForm
+            column: URL_PATH
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: A full URL is sent as written; a path (/users) goes behind the environment's base_url
+        }
+    )
+
+    pageItem P210_ENV_NAME (
+        type: selectList
+        label {
+            label: Environment
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select v.name                                              as display_value
+                     , v.name                                              as return_value
+                  from arw_environments v
+                 where v.collection_id = :P210_COLLECTION_ID
+                   and v.active_yn = 'Y'
+                 order by v.name
+                ```
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 55
+            region: @requestSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 2
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1                                                   as environment_exists
+                  from arw_environments v
+                 where v.collection_id = :P210_COLLECTION_ID
+                   and v.active_yn = 'Y'
+                ```
+        }
+        help {
+            inlineHelpText: Sets the active environment (base_url and {{variables}})
+        }
+    )
+
+    pageItem P210_TIMEOUT_SECS (
+        type: numberField
+        label {
+            label: Timeout (seconds)
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @endpointForm
+            slot: regionBody
+            alignment: left
+            columnSpan: 4
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @endpointForm
+            column: TIMEOUT_SECS
+            dataType: number
+        }
+        default {
+            type: static
+            staticValue: 30
+        }
+    )
+
+    pageItem P210_RUNTIME_TARGET_CODE (
+        type: selectList
+        label {
+            label: Runtime Target
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:apex;apex,job;job,autonomous;autonomous
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 70
+            region: @endpointForm
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 4
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @endpointForm
+            column: RUNTIME_TARGET_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: apex
+        }
+    )
+
+    pageItem P210_ENGINE_CODE (
+        type: selectList
+        label {
+            label: Engine
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:apex_web_service;apex_web_service,apex_web_service_b;apex_web_service_b,utl_http;utl_http,dbms_cloud_send_request;dbms_cloud_send_request
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 80
+            region: @endpointForm
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 4
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @endpointForm
+            column: ENGINE_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: apex_web_service
+        }
+    )
+
+    // =========================================================================
+    // Items: Auth
+    // =========================================================================
+
+    pageItem P210_CREDENTIAL_ID (
+        type: selectList
+        label {
+            label: Credential
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select cr.name || ' (' || cr.auth_type_code || ')'         as display_value
+                     , cr.credential_id                                    as return_value
+                  from arw_credentials cr
+                 where cr.active_yn = 'Y'
+                 order by cr.name
+                ```
+            displayExtraValues: false
+            displayNullValue: true
+            nullDisplayValue: - No auth -
+        }
+        layout {
+            sequence: 10
+            region: @authSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            formRegion: @endpointForm
+            column: CREDENTIAL_ID
+            dataType: number
+        }
+        help {
+            inlineHelpText: The secret stays in an APEX Web Credential -- only its static ID is referenced
+        }
+    )
+
+    // =========================================================================
+    // Items: Body
+    // =========================================================================
+
+    pageItem P210_CONTENT_TYPE (
+        type: textField
+        label {
+            label: Content Type
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @bodySR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 200
+        }
+        source {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select b.content_type                                      as content_type
+                  from arw_request_bodies b
+                 where b.endpoint_id = :P210_ENDPOINT_ID
+                   and b.active_yn = 'Y'
+                ```
+            used: onlyWhenSessionStateIsNull
+        }
+        default {
+            type: static
+            staticValue: application/json
+        }
+    )
+
+    pageItem P210_BODY_TEMPLATE (
+        type: textarea
+        label {
+            label: Body Template
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @bodySR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 120
+            height: 18
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        source {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select b.body_template                                     as body_template
+                  from arw_request_bodies b
+                 where b.endpoint_id = :P210_ENDPOINT_ID
+                   and b.active_yn = 'Y'
+                ```
+            used: onlyWhenSessionStateIsNull
+        }
+        sessionState {
+            dataType: clob
+        }
+        help {
+            inlineHelpText: Request body sent with POST / PUT / PATCH -- {{variables}} are resolved from the environment
+        }
+    )
+
+    // =========================================================================
+    // Items: Code
+    // =========================================================================
+
+    pageItem P210_TARGET_PROFILE_ID (
+        type: selectList
+        label {
+            label: Target Profile
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select tp.name                                             as display_value
+                     , tp.target_profile_id                                as return_value
+                  from arw_target_profiles tp
+                 where tp.active_yn = 'Y'
+                 order by tp.target_profile_id
+                ```
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @codePanelSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+    )
+
+    pageItem P210_BUNDLE_TYPES (
+        type: checkboxGroup
+        label {
+            label: INSTALL components in the .apx bundle
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:restDataSource;apexlang_rds,installScript;apexlang_install_script,aiAgent tool;apexlang_ai_tool,automation;apexlang_automation
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 10
+            region: @codeFooterSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P210_BUNDLE_SUMMARY (
+        type: displayOnly
+        layout {
+            sequence: 20
+            region: @codeFooterSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+    )
+
+    // =========================================================================
+    // Items: {params} -- hidden page state
+    // =========================================================================
+
+    pageItem P210_ENVIRONMENT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: UI state only: set by the Environment selector through itemsToReturn. Send never trusts it -- it resolves the environment from the collection and ARW_ENV_NAME, and arw_exec_api rejects an environment of another collection.
+        }
+    )
+
+    pageItem P210_EXECUTION_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Send / Add sample) and is used only as UI state, so checksum-based SSP would block the intended flow.
+        }
+    )
+
+    pageItem P210_SAMPLE_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Send / Add sample) and is used only as UI state, so checksum-based SSP would block the intended flow.
+        }
+    )
+
+    pageItem P210_DATA_PROFILE_ID (
+        type: hidden
+        layout {
+            sequence: 40
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Derive data profile) and is used only as UI state, so checksum-based SSP would block the intended flow.
+        }
+    )
+
+    pageItem P210_ARTIFACT_TYPE (
+        type: hidden
+        layout {
+            sequence: 50
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: Same-page dynamic-action ownership: this hidden item is updated after render via setValue (Code tab list) and is used only as UI state, so checksum-based SSP would block the intended flow.
+        }
+    )
+
+    pageItem P210_ACTION_ERROR (
+        type: hidden
+        layout {
+            sequence: 60
+            region: @paramsSR
+            slot: regionBody
+        }
+        settings {
+            valueProtected: false
+        }
+        security {
+            sessionStateProtection: unrestricted
+        }
+        comments {
+            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Send / Derive / Accept error text) and is used only as UI state, so checksum-based SSP would block the intended flow.
+        }
+    )
+
+    // =========================================================================
+    // Buttons
+    // =========================================================================
+
+    button SEND (
+        buttonName: SEND
+        advanced {
+            htmlDomId: SEND
+        }
+        label: Send
+        layout {
+            sequence: 10
+            region: @requestSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button DELETE (
+        buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
+        label: Delete
+        layout {
+            sequence: 10
+            region: @generalButtonsSR
+            slot: DELETE
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
+
+    button SAVE (
+        buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
+        label: Save
+        layout {
+            sequence: 20
+            region: @requestSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button MANAGE_CREDENTIALS (
+        buttonName: MANAGE_CREDENTIALS
+        advanced {
+            htmlDomId: MANAGE_CREDENTIALS
+        }
+        label: Manage credentials
+        layout {
+            sequence: 10
+            region: @authButtonsSR
+            slot: PREVIOUS
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 600
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button DERIVE_PROFILE (
+        buttonName: DERIVE_PROFILE
+        advanced {
+            htmlDomId: DERIVE_PROFILE
+        }
+        label: Derive data profile
+        layout {
+            sequence: 10
+            region: @responseFooterCR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button ADD_SAMPLE (
+        buttonName: ADD_SAMPLE
+        advanced {
+            htmlDomId: ADD_SAMPLE
+        }
+        label: Add sample
+        layout {
+            sequence: 10
+            region: @profileButtonsSR
+            slot: PREVIOUS
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button ACCEPT_PROFILE (
+        buttonName: ACCEPT_PROFILE
+        advanced {
+            htmlDomId: ACCEPT_PROFILE
+        }
+        label: Accept profile
+        layout {
+            sequence: 20
+            region: @profileButtonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button DOWNLOAD (
+        buttonName: DOWNLOAD
+        advanced {
+            htmlDomId: DOWNLOAD
+        }
+        label: Download .apx bundle
+        layout {
+            sequence: 10
+            region: @codeFooterSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                request: DOWNLOAD
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    // =========================================================================
+    // Computations (before regions: after the form has been initialized)
+    // =========================================================================
+
+    computation compute-environment-id (
+        itemName: P210_ENVIRONMENT_ID
+        execution {
+            sequence: 10
+            point: beforeRegions
+        }
+        computation {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                arw_environments_api.resolve_environment_id(
+                    p_collection_id                 => :P210_COLLECTION_ID
+                  , p_environment_name              => :ARW_ENV_NAME
+                )
+                ```
+        }
+    )
+
+    computation compute-environment-name (
+        itemName: P210_ENV_NAME
+        execution {
+            sequence: 15
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select v.name                                              as environment_name
+                  from arw_environments v
+                 where v.environment_id = :P210_ENVIRONMENT_ID
+                ```
+        }
+    )
+
+    computation compute-execution-id (
+        itemName: P210_EXECUTION_ID
+        execution {
+            sequence: 20
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select s.last_execution_id                                 as last_execution_id
+                  from arw_endpoint_summary_vw s
+                 where s.endpoint_id = :P210_ENDPOINT_ID
+                ```
+        }
+    )
+
+    computation compute-data-profile-id (
+        itemName: P210_DATA_PROFILE_ID
+        execution {
+            sequence: 30
+            point: beforeRegions
+        }
+        computation {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                arw_discover_api.current_profile_id(
+                    p_endpoint_id                   => :P210_ENDPOINT_ID
+                )
+                ```
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ENDPOINT_ID
+        }
+    )
+
+    computation compute-target-profile-id (
+        itemName: P210_TARGET_PROFILE_ID
+        execution {
+            sequence: 40
+            point: beforeRegions
+        }
+        computation {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                arw_target_profiles_api.default_profile_id
+                ```
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P210_TARGET_PROFILE_ID
+        }
+    )
+
+    computation compute-artifact-type (
+        itemName: P210_ARTIFACT_TYPE
+        execution {
+            sequence: 50
+            point: beforeRegions
+        }
+        computation {
+            type: staticValue
+            staticValue: plsql_package
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P210_ARTIFACT_TYPE
+        }
+    )
+
+    computation compute-bundle-types (
+        itemName: P210_BUNDLE_TYPES
+        execution {
+            sequence: 60
+            point: beforeRegions
+        }
+        computation {
+            type: staticValue
+            staticValue: apexlang_rds:apexlang_install_script:apexlang_ai_tool
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P210_BUNDLE_TYPES
+        }
+    )
+
+    // =========================================================================
+    // Dynamic actions
+    // =========================================================================
+
+    dynamicAction send-request (
+        name: Add Sample
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: #ADD_SAMPLE
+        }
+
+        action execute-endpoint (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    begin
+                      :P210_ACTION_ERROR := null;
+                      :P210_SAMPLE_ID    := null;
+
+                      :P210_EXECUTION_ID := arw_exec_api.execute_endpoint(
+                                                p_endpoint_id         => :P210_ENDPOINT_ID
+                                              , p_environment_id      => :P210_ENVIRONMENT_ID
+                                            );
+                      :P210_SAMPLE_ID := arw_discover_api.save_sample(
+                                             p_execution_id           => :P210_EXECUTION_ID
+                                         );
+                    exception
+                      when others then
+                        :P210_ACTION_ERROR := case
+                                                when sqlcode between -20999 and -20000
+                                                then regexp_replace(
+                                                         regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                                       , '^ORA-[0-9]+: '
+                                                     )
+                                                else 'The request could not be sent. See the debug log for details.'
+                                              end;
+                        apex_debug.error(
+                            p_message                 => 'Send failed for endpoint %s: %s'
+                          , p0                        => :P210_ENDPOINT_ID
+                          , p1                        => sqlerrm
+                        );
+
+                        -- A refused call is still recorded as an execution: show the latest one.
+                        select max(s.last_execution_id)
+                          into :P210_EXECUTION_ID
+                          from arw_endpoint_summary_vw s
+                         where s.endpoint_id = :P210_ENDPOINT_ID;
+                    end;
+                    ```
+                itemsToSubmit: [
+                    P210_ENDPOINT_ID
+                    P210_ENVIRONMENT_ID
+                ]
+                itemsToReturn: [
+                    P210_EXECUTION_ID
+                    P210_SAMPLE_ID
+                    P210_ACTION_ERROR
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-response-status (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @responseChipsCR
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action refresh-response-body (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @responseBodyDC
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action refresh-response-footer (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @responseFooterCR
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+        action show-response-tab (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.afterSend();
+                    ```
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-environment (
+        name: Change Environment
+        execution {
+            sequence: 15
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_ENV_NAME
+        }
+
+        action set-active-environment (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    :ARW_ENV_NAME        := :P210_ENV_NAME;
+                    :P210_ENVIRONMENT_ID := arw_environments_api.resolve_environment_id(
+                                                p_collection_id     => :P210_COLLECTION_ID
+                                              , p_environment_name  => :ARW_ENV_NAME
+                                            );
+                    ```
+                itemsToSubmit: [
+                    P210_ENV_NAME
+                    P210_COLLECTION_ID
+                ]
+                itemsToReturn: [
+                    P210_ENVIRONMENT_ID
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-url-preview (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @requestBarCR
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction derive-profile (
+        name: Derive Data Profile
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @DERIVE_PROFILE
+        }
+
+        action derive-data-profile (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    begin
+                      :P210_ACTION_ERROR := null;
+
+                      :P210_DATA_PROFILE_ID := arw_discover_api.derive_profile(
+                                                   p_endpoint_id      => :P210_ENDPOINT_ID
+                                               );
+                    exception
+                      when others then
+                        :P210_ACTION_ERROR := case
+                                                when sqlcode between -20999 and -20000
+                                                then regexp_replace(
+                                                         regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                                       , '^ORA-[0-9]+: '
+                                                     )
+                                                else 'The data profile could not be derived. See the debug log for details.'
+                                              end;
+                        apex_debug.error(
+                            p_message                 => 'Derive profile failed for endpoint %s: %s'
+                          , p0                        => :P210_ENDPOINT_ID
+                          , p1                        => sqlerrm
+                        );
+                    end;
+                    ```
+                itemsToSubmit: [
+                    P210_ENDPOINT_ID
+                ]
+                itemsToReturn: [
+                    P210_DATA_PROFILE_ID
+                    P210_ACTION_ERROR
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-header (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileHeaderCR
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-columns (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileColumnsCR
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-notes (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileNotesCR
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+        action refresh-code-after-derive (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @codeDC
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+        action show-profile (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.afterDerive();
+                    ```
+            }
+            execution {
+                sequence: 60
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction accept-profile (
+        name: Accept Profile
+        execution {
+            sequence: 30
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @ACCEPT_PROFILE
+        }
+
+        action accept-data-profile (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    begin
+                      :P210_ACTION_ERROR := null;
+
+                      arw_discover_api.accept_profile(
+                          p_data_profile_id                 => :P210_DATA_PROFILE_ID
+                      );
+                    exception
+                      when others then
+                        :P210_ACTION_ERROR := case
+                                                when sqlcode between -20999 and -20000
+                                                then regexp_replace(
+                                                         regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                                       , '^ORA-[0-9]+: '
+                                                     )
+                                                else 'The data profile could not be accepted. See the debug log for details.'
+                                              end;
+                        apex_debug.error(
+                            p_message                 => 'Accept profile failed for profile %s: %s'
+                          , p0                        => :P210_DATA_PROFILE_ID
+                          , p1                        => sqlerrm
+                        );
+                    end;
+                    ```
+                itemsToSubmit: [
+                    P210_DATA_PROFILE_ID
+                ]
+                itemsToReturn: [
+                    P210_ACTION_ERROR
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-status (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileHeaderCR
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action refresh-code-after-accept (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @codeDC
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action confirm-accept (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.afterAccept();
+                    ```
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-profile-on-dialog-close (
+        name: Refresh Profile on Dialog Close
+        execution {
+            sequence: 40
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @profileColumnsCR
+        }
+
+        action refresh-profile-header-after-edit (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileHeaderCR
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-columns-after-edit (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileColumnsCR
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action refresh-profile-notes-after-edit (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @profileNotesCR
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction toggle-profile-card (
+        name: Toggle Profile Card
+        execution {
+            sequence: 50
+        }
+        when {
+            event: ready
+        }
+        clientSideCondition {
+            type: itemIsNull
+            item: P210_DATA_PROFILE_ID
+        }
+
+        action hide-profile-card (
+            action: hide
+            affectedElements {
+                selectionType: region
+                region: @profileSR
+            }
+            execution {
+                sequence: 10
+            }
+        )
+
+        action show-profile-card (
+            action: show
+            affectedElements {
+                selectionType: region
+                region: @profileSR
+            }
+            execution {
+                sequence: 20
+                fireWhenEventResultIs: false
+            }
+        )
+
+    )
+
+    dynamicAction select-artifact (
+        name: Select Artifact
+        execution {
+            sequence: 60
+            eventScope: dynamic
+            staticContainer: #artifactListCR
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: .arw-artifact
+        }
+
+        action set-artifact-type (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.triggeringElement.getAttribute('data-artifact')
+            }
+            affectedElements {
+                selectionType: items
+                items: P210_ARTIFACT_TYPE
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action highlight-artifact (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.markArtifactActive(this.triggeringElement);
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action refresh-code (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @codeDC
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-target-profile (
+        name: Change Target Profile
+        execution {
+            sequence: 70
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_TARGET_PROFILE_ID
+        }
+
+        action refresh-code-chips (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @codeChipsCR
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action refresh-code-for-profile (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @codeDC
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-bundle-types (
+        name: Change Bundle Types
+        execution {
+            sequence: 80
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_BUNDLE_TYPES
+        }
+
+        action save-bundle-types (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    -- Persist the selection in session state for the Download request.
+                    null;
+                    ```
+                itemsToSubmit: [
+                    P210_BUNDLE_TYPES
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action update-bundle-summary (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.updateBundleSummary();
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: true
+            }
+        )
+
+    )
+
+    // =========================================================================
+    // Processes
+    // =========================================================================
+
+    process download-bundle (
+        name: Download APX Bundle
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_bundle                                  clob;
+                  l_blob                                    blob;
+                  l_file_name                               varchar2(400 char);
+                begin
+                  l_bundle := arw_codegen_api.build_apx_bundle(
+                                  p_endpoint_id                 => :P210_ENDPOINT_ID
+                                , p_artifact_type_codes         => :P210_BUNDLE_TYPES
+                                , p_target_profile_id           => :P210_TARGET_PROFILE_ID
+                              );
+                  l_file_name := replace(
+                                     arw_codegen_api.bundle_file_name(p_endpoint_id => :P210_ENDPOINT_ID)
+                                   , '"'
+                                 );
+                  l_blob := apex_util.clob_to_blob(
+                                p_clob                        => coalesce(l_bundle, to_clob(' '))
+                              , p_charset                     => 'AL32UTF8'
+                            );
+
+                  sys.htp.init;
+                  sys.owa_util.mime_header('text/plain', false, 'UTF-8');
+                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_blob));
+                  sys.htp.p('Content-Disposition: attachment; filename="' || l_file_name || '"');
+                  sys.owa_util.http_header_close;
+                  sys.wpg_docload.download_file(l_blob);
+
+                  apex_application.stop_apex_engine;
+                end;
+                ```
+        }
+        execution {
+            sequence: 5
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DOWNLOAD' and :P210_ENDPOINT_ID is not null
+                ```
+        }
+    )
+
+    process response-file (
+        name: Serve Response File
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_blob                                    blob;
+                  l_content_type                            varchar2(255 char);
+                  l_file_name                               varchar2(200 char);
+                begin
+                  select x.response_body_blob                               as response_body_blob
+                       , coalesce(l.content_type, 'application/octet-stream') as content_type
+                       , 'response-' || x.execution_id
+                         || case
+                              when l.content_type = 'image/png'                 then '.png'
+                              when l.content_type in ('image/jpeg', 'image/jpg') then '.jpg'
+                              when l.content_type = 'image/gif'                 then '.gif'
+                              when l.content_type = 'image/svg+xml'             then '.svg'
+                              when l.content_type = 'image/webp'                then '.webp'
+                              when l.content_type = 'audio/mpeg'                then '.mp3'
+                              when l.content_type in ('audio/ogg', 'application/ogg') then '.ogg'
+                              when l.content_type = 'video/mp4'                 then '.mp4'
+                              when l.content_type = 'application/pdf'           then '.pdf'
+                              else '.bin'
+                            end                                             as file_name
+                    into l_blob
+                       , l_content_type
+                       , l_file_name
+                    from arw_executions                      x
+                    join arw_execution_log_vw                l on l.execution_id = x.execution_id
+                   where x.execution_id = :P210_EXECUTION_ID
+                     and x.response_is_binary_yn = 'Y';
+
+                  sys.htp.init;
+                  sys.owa_util.mime_header(l_content_type, false);
+                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_blob));
+                  sys.htp.p('Content-Disposition: '
+                            || case when :REQUEST = 'RESPONSE_DOWNLOAD' then 'attachment' else 'inline' end
+                            || '; filename="' || l_file_name || '"');
+                  sys.owa_util.http_header_close;
+                  sys.wpg_docload.download_file(l_blob);
+
+                  apex_application.stop_apex_engine;
+                end;
+                ```
+        }
+        execution {
+            sequence: 6
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('RESPONSE_FILE', 'RESPONSE_DOWNLOAD') and :P210_EXECUTION_ID is not null
+                ```
+        }
+    )
+
+    process initialize-endpoint-form (
+        name: Initialize Endpoint Form
+        type: formInitialization
+        formRegion: @endpointForm
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+    process save-endpoint (
+        name: Save Endpoint
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                if :P210_ENDPOINT_ID is null then
+                  -- New request: no collection chosen means Drafts
+                  :P210_COLLECTION_ID := coalesce(:P210_COLLECTION_ID, arw_collections_api.drafts_collection_id);
+                  :P210_ENDPOINT_ID   := arw_endpoint_api.create_endpoint(
+                                             p_collection_id          => :P210_COLLECTION_ID
+                                           , p_name                   => :P210_NAME
+                                           , p_http_method            => :P210_HTTP_METHOD
+                                           , p_url_path               => :P210_URL_PATH
+                                           , p_credential_id          => :P210_CREDENTIAL_ID
+                                           , p_timeout_secs           => :P210_TIMEOUT_SECS
+                                           , p_runtime_target_code    => :P210_RUNTIME_TARGET_CODE
+                                           , p_engine_code            => :P210_ENGINE_CODE
+                                         );
+                else
+                  arw_endpoint_api.update_endpoint(
+                      p_endpoint_id                   => :P210_ENDPOINT_ID
+                    , p_name                          => :P210_NAME
+                    , p_http_method                   => :P210_HTTP_METHOD
+                    , p_url_path                      => :P210_URL_PATH
+                    , p_credential_id                 => :P210_CREDENTIAL_ID
+                    , p_timeout_secs                  => :P210_TIMEOUT_SECS
+                    , p_runtime_target_code           => :P210_RUNTIME_TARGET_CODE
+                    , p_engine_code                   => :P210_ENGINE_CODE
+                    , p_collection_id                 => :P210_COLLECTION_ID
+                  );
+                end if;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Saved.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND')
+                ```
+        }
+    )
+
+    process delete-endpoint (
+        name: Delete Endpoint
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_endpoint_api.deactivate_endpoint(
+                    p_endpoint_id                   => :P210_ENDPOINT_ID
+                );
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Endpoint deleted.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    process save-body (
+        name: Save Body
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_endpoint_api.set_body(
+                    p_endpoint_id                   => :P210_ENDPOINT_ID
+                  , p_content_type                  => coalesce(:P210_CONTENT_TYPE, 'application/json')
+                  , p_body_template                 => :P210_BODY_TEMPLATE
+                );
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND')
+                ```
+        }
+    )
+
+    process save-headers (
+        name: Save Headers
+        type: executeCode
+        editableRegion: @headersIG
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  lc_mask                                   constant varchar2(8 char) := '********';
+                  l_header_value                            arw_endpoint_headers.header_value%type := :HEADER_VALUE;
+                begin
+                  case :APEX$ROW_STATUS
+                    when 'C' then
+                      :HEADER_ID := arw_endpoint_api.add_header(
+                                        p_endpoint_id             => :P210_ENDPOINT_ID
+                                      , p_header_name             => :HEADER_NAME
+                                      , p_header_value            => l_header_value
+                                      , p_is_sensitive_yn         => coalesce(:IS_SENSITIVE_YN, 'N')
+                                    );
+                    when 'U' then
+                      -- A masked sensitive value comes back unchanged: keep the stored secret.
+                      if l_header_value = lc_mask then
+                        select h.header_value
+                          into l_header_value
+                          from arw_endpoint_headers h
+                         where h.header_id = :HEADER_ID;
+                      end if;
+
+                      arw_endpoint_api.update_header(
+                          p_header_id                     => :HEADER_ID
+                        , p_header_name                   => :HEADER_NAME
+                        , p_header_value                  => l_header_value
+                        , p_is_sensitive_yn               => coalesce(:IS_SENSITIVE_YN, 'N')
+                      );
+                    when 'D' then
+                      arw_endpoint_api.remove_header(
+                          p_header_id                     => :HEADER_ID
+                      );
+                  end case;
+                end;
+                ```
+        }
+        execution {
+            sequence: 60
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :APEX$ROW_STATUS in ('C', 'U', 'D')
+                ```
+        }
+    )
+
+    process save-params (
+        name: Save Params
+        type: executeCode
+        editableRegion: @paramsIG
+        source {
+            plsqlCode:
+                ```plsql
+                case :APEX$ROW_STATUS
+                  when 'C' then
+                    :PARAM_ID := arw_endpoint_api.add_param(
+                                     p_endpoint_id                => :P210_ENDPOINT_ID
+                                   , p_param_kind_code            => :PARAM_KIND_CODE
+                                   , p_param_name                 => :PARAM_NAME
+                                   , p_param_value                => :PARAM_VALUE
+                                   , p_data_type_code             => coalesce(:DATA_TYPE_CODE, 'varchar2')
+                                   , p_is_required_yn             => coalesce(:IS_REQUIRED_YN, 'N')
+                                 );
+                  when 'U' then
+                    arw_endpoint_api.update_param(
+                        p_param_id                        => :PARAM_ID
+                      , p_param_kind_code                 => :PARAM_KIND_CODE
+                      , p_param_name                      => :PARAM_NAME
+                      , p_param_value                     => :PARAM_VALUE
+                      , p_data_type_code                  => coalesce(:DATA_TYPE_CODE, 'varchar2')
+                      , p_is_required_yn                  => coalesce(:IS_REQUIRED_YN, 'N')
+                    );
+                  when 'D' then
+                    arw_endpoint_api.remove_param(
+                        p_param_id                        => :PARAM_ID
+                    );
+                end case;
+                ```
+        }
+        execution {
+            sequence: 70
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :APEX$ROW_STATUS in ('C', 'U', 'D')
+                ```
+        }
+    )
+
+    process execute-request (
+        name: Execute Request
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                  -- The execution is logged in an autonomous transaction that
+                  -- references the endpoint: commit what Save just wrote first,
+                  -- or a request created by this same Send would deadlock.
+                  commit;
+
+                  :P210_ACTION_ERROR   := null;
+                  :P210_ENVIRONMENT_ID := arw_environments_api.resolve_environment_id(
+                                              p_collection_id       => :P210_COLLECTION_ID
+                                            , p_environment_name    => :ARW_ENV_NAME
+                                          );
+                  :P210_EXECUTION_ID   := arw_exec_api.execute_endpoint(
+                                              p_endpoint_id         => :P210_ENDPOINT_ID
+                                            , p_environment_id      => :P210_ENVIRONMENT_ID
+                                          );
+                  :P210_SAMPLE_ID      := arw_discover_api.save_sample(
+                                              p_execution_id        => :P210_EXECUTION_ID
+                                          );
+                exception
+                  when others then
+                    -- Keep the saved request; report the refusal or failure on reload
+                    :P210_ACTION_ERROR := case
+                                            when sqlcode between -20999 and -20000
+                                            then regexp_replace(
+                                                     regexp_replace(dbms_utility.format_error_stack, chr(10) || 'ORA-[0-9]+: .*$', null, 1, 1, 'n')
+                                                   , '^ORA-[0-9]+: '
+                                                 )
+                                            else 'The request could not be sent. See the debug log for details.'
+                                          end;
+                    apex_debug.error(
+                        p_message                     => 'Send failed for endpoint %s: %s'
+                      , p0                            => :P210_ENDPOINT_ID
+                      , p1                            => sqlerrm
+                    );
+                end;
+                ```
+        }
+        execution {
+            sequence: 80
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'SEND' and :P210_ENDPOINT_ID is not null
+                ```
+        }
+    )
+
+    process clear-action-error (
+        name: Clear Action Error
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                -- Shown once by the page-load JavaScript; don't repeat it on the next visit
+                :P210_ACTION_ERROR := null;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: afterFooter
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P210_ACTION_ERROR
+        }
+    )
+
+    // =========================================================================
+    // Branches
+    // =========================================================================
+
+    branch go-to-endpoints (
+        name: Go To Endpoints
+        execution {
+            sequence: 10
+            point: afterProcessing
+        }
+        behavior {
+            type: pageOrUrl
+            target: {
+                page: 200
+                items: {
+                    P200_COLLECTION_ID: &P210_COLLECTION_ID.
+                }
+                clearCache: 200
+            }
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    branch back-to-editor (
+        name: Back To Editor
+        execution {
+            sequence: 20
+            point: afterProcessing
+        }
+        behavior {
+            type: pageOrUrl
+            target: {
+                page: 210
+                items: {
+                    P210_ENDPOINT_ID: &P210_ENDPOINT_ID.
+                }
+            }
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND')
+                ```
+        }
+    )
+
+)

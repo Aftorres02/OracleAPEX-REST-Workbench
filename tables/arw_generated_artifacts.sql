@@ -39,7 +39,7 @@ create table arw_generated_artifacts (
   , constraint ck_arw_generated_artifacts_active_yn check (active_yn in ('Y', 'N'))
   , constraint ck_arw_generated_artifacts_type check (artifact_type_code in (
       'plsql_block', 'plsql_package', 'json_table', 'curl', 'table_ddl'
-    , 'apexlang_rds', 'apexlang_install_script', 'apexlang_ai_tool'
+    , 'apexlang_rds', 'apexlang_install_script', 'apexlang_ai_tool', 'apexlang_automation'
     ))
   , constraint fk_generated_artifacts_endpoints foreign key (endpoint_id) references arw_endpoints (endpoint_id)
   , constraint fk_generated_artifacts_target_profiles foreign key (target_profile_id) references arw_target_profiles (target_profile_id)

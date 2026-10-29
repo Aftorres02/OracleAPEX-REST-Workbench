@@ -3,15 +3,16 @@ create or replace package arw_endpoint_api
 as
 -- =============================================================================
 -- Package: arw_endpoint_api
--- Purpose: CRUD for endpoints and their headers, params and request body.
---          No UI yet -- see docs/base/implementation_plan.md section 4 (0.3).
+-- Purpose: CRUD for endpoints and their headers, params and request body,
+--          plus the display URL shown in the endpoint editor URL bar
+--          (page 210) -- see docs/base/implementation_plan.md section 4 (0.3).
 --
 -- =============================================================================
 
 
   function create_endpoint(
       p_collection_id                           in arw_endpoints.collection_id%type
-    , p_name                                    in arw_endpoints.name%type
+    , p_name                                    in arw_endpoints.name%type default null
     , p_http_method                             in arw_endpoints.http_method%type
     , p_url_path                                in arw_endpoints.url_path%type
     , p_credential_id                           in arw_endpoints.credential_id%type default null
@@ -31,6 +32,7 @@ as
     , p_timeout_secs                            in arw_endpoints.timeout_secs%type
     , p_runtime_target_code                     in arw_endpoints.runtime_target_code%type
     , p_engine_code                             in arw_endpoints.engine_code%type
+    , p_collection_id                           in arw_endpoints.collection_id%type default null
   );
 
 
@@ -97,6 +99,19 @@ as
   procedure remove_body(
       p_endpoint_id                             in arw_request_bodies.endpoint_id%type
   );
+
+
+  function display_url(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type default null
+  )
+  return varchar2;
+
+
+  function is_absolute_url_yn(
+      p_url                                     in varchar2
+  )
+  return varchar2;
 
 
 end arw_endpoint_api;

@@ -425,6 +425,97 @@ versión mínima de la Fase 0.
 > **Falta además:** la app no tiene Error Handling Function global
 > (`error-handling.md` §3), así que los errores `ORA-2094x` del paquete se
 > muestran tal cual en la notificación.
+>
+> **Actualización (2026-10-23, issue #25): app completa según los mockups
+> `docs/base/mockups/files_v2`, importada como aplicación 142 en
+> `DEV_AI_1`.** Donde el plan y los mockups difieren, mandan los mockups.
+>
+> - Backend nuevo: `arw_discover_api` (muestras + perfil editable,
+>   `profile_status_code` proposal/accepted), `arw_codegen_api` +
+>   `arw_render_utils` + 59 fragmentos en `arw_code_templates` (los 9
+>   artefactos: `_api` package, bloque anónimo, `json_table`, DDL de tabla,
+>   cURL, y APEXlang restDataSource / installScript / aiAgent tool /
+>   automation; el APEXlang generado pasa `apex validate`),
+>   `arw_environments_api`, `arw_target_profiles_api`,
+>   `arw_credentials_api` (incluye crear la Web Credential real),
+>   `arw_import_api` (Postman v2.1 — adelanta la Fase 2),
+>   `arw_preflight_api.preflight_report` (pipelined) y tres vistas
+>   (`arw_collection_summary_vw`, `arw_execution_log_vw`,
+>   `arw_endpoint_summary_vw`). `arw_exec_api` ahora sustituye path/form
+>   params y `{{var}}` del ambiente, y registra como ejecución `error` las
+>   llamadas rechazadas por el preflight.
+> - Páginas: 1 Home, 100/110 Collections, 200 Endpoints, 210 editor
+>   (General, Auth, Headers, Params, Body, Response con perfil derivado,
+>   Code con descarga del bundle `.apx`), 215 columna del perfil, 300/310
+>   Environments (+ variables, "Set active"), 400/410 History, 500/510
+>   Target profiles, 600/610 Credentials, 700 Import, 800 Preflight.
+> - Datos demo: colecciones JSONPlaceholder (6 endpoints, perfilados) y
+>   Sandbox (httpbin.org, sin ACL → el preflight lo bloquea, como el
+>   mockup), tres target profiles, historial real.
+> - Verificado: `apex validate` limpio; las 31 consultas de regiones/LOVs
+>   parsean y las 32 piezas de PL/SQL embebido compilan contra el esquema;
+>   flujo completo Send → muestra → Derive → Accept → 9 artefactos →
+>   bundle probado en vivo.
+>
+> **Pendiente:** revisión visual en el navegador (no hubo navegador en la
+> sesión que lo construyó); la variante `dbms_cloud_send_request` del
+> generador no compila aquí (el esquema no tiene EXECUTE sobre
+> `DBMS_CLOUD`); la ruta `job` del código generado deja `gc_app_id` /
+> `gc_app_user` como TODO; sigue sin Error Handling Function global.
+>
+> **Actualización (2026-10-24, issue #25): flujo tipo Postman en el editor
+> (página 210)**, tras la primera prueba en el navegador.
+>
+> - **New request** (barra superior) abre el editor vacío: método + URL +
+>   Send. Sin colección, la petición se guarda en la colección **Drafts**
+>   (`arw_collections_api.drafts_collection_id`, se crea sola); se mueve a
+>   otra colección desde la pestaña Settings.
+> - **Send = guardar + enviar** en un solo submit (URL, Params, Auth,
+>   Headers, Body, Settings); **Save** solo guarda. Se quitaron los Save
+>   sueltos de Auth/Body/IGs. El nombre es opcional (por defecto
+>   `MÉTODO + URL`).
+> - Barra de petición: método, URL editable, selector de ambiente (fija
+>   `ARW_ENV_NAME`), Send, Save; debajo, la URL resuelta. Pestañas de la
+>   petición: Params, Auth, Headers, Body, Settings; debajo, Response y
+>   Code.
+> - **URL completa**: si empieza por `http(s)://` se envía tal cual, sin
+>   `{{base_url}}` ni ambiente (`arw_executions.environment_id` ahora
+>   admite null — `release/code/absolute_url_upgrade.sql`). Una URL pegada
+>   que empieza por el `base_url` de un ambiente de la colección se guarda
+>   como ruta. El preflight revisa el host de la URL que realmente se llama.
+> - También: todos los botones y regiones tienen Static ID (sin él, el
+>   JS de la página no encontraba `#SEND`, `tabsSR`, etc.).
+>
+> **Actualización (2026-10-24, issue #25): guía dentro de la app** — menú
+> **Guide** (después de Home) con dos páginas, poco texto y énfasis en
+> ejemplos que se abren listos para pulsar Send:
+>
+> - **900 Quick start**: 3 pasos (New request → pegar URL → Send), botones
+>   *New request* / *Open a ready request* y tarjetas "Explore the app"
+>   (Examples, Response + perfil + código, Environments, History, Import,
+>   Preflight).
+> - **910 Examples**: 10 ejemplos en tarjetas por categoría (Basics,
+>   Sending data, Variables, Preflight) contra jsonplaceholder (el único
+>   host con ACL); el de httpbin.org se bloquea a propósito en el
+>   preflight. *Reset examples* los restaura.
+> - Backend: tabla `arw_guide_examples` (upgrade
+>   `release/code/guide_upgrade.sql`), `arw_guide_api.install_examples`
+>   (idempotente; crea la colección "Guide examples" con su ambiente dev,
+>   la variable `api_key` y la subcolección "No environment") y
+>   `data/arw_seed_guide.sql`.
+> - Ampliación: 23 ejemplos en 4 secciones — **Quick GET** (lo principal:
+>   pegar una URL; lista, un registro, filtros, otra API, imagen PNG/JPEG,
+>   audio MP3, PDF, XML), **Collections and variables** (`{{base_url}}`,
+>   ambientes dev = jsonplaceholder / prod = dummyjson, params guardados,
+>   variables en URL y header), **POST, PUT, PATCH, DELETE** (de lo más
+>   simple a body con variables) y **Preflight**. Las tarjetas marcan
+>   *Needs ACL* cuando el host aún no tiene permiso de red; un ADMIN corre
+>   `scripts/grant_guide_hosts.sql` (dummyjson.com, httpbin.org,
+>   upload.wikimedia.org, www.w3.org).
+> - **Respuestas binarias**: `arw_exec_api` descarga siempre en bruto
+>   (`make_rest_request_b`) y guarda como texto solo si el Content-Type es
+>   textual; si no, en `response_body_blob`. El editor muestra la imagen,
+>   el audio, el vídeo o el PDF y ofrece *Download file*.
 
 ### Fase 2 — Import de colecciones Postman
 

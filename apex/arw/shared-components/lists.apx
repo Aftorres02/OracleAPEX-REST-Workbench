@@ -1,6 +1,43 @@
 list navigation-bar (
     name: Navigation Bar
 
+    entry new-request (
+        label: New request
+        icon {
+            imageIconCssClasses: fa-plus
+        }
+        layout {
+            sequence: 3
+        }
+        link {
+            target: {
+                page: 210
+                clearCache: 210
+            }
+        }
+        serverSideCondition {
+            type: userIsAuthenticated
+        }
+    )
+
+    entry active-environment (
+        label: Environment: &ARW_ENV_NAME.
+        icon {
+            imageIconCssClasses: fa-globe
+        }
+        layout {
+            sequence: 5
+        }
+        link {
+            target: {
+                page: 300
+            }
+        }
+        serverSideCondition {
+            type: userIsAuthenticated
+        }
+    )
+
     entry --- (
         label: ---
         layout {
@@ -70,9 +107,75 @@ list navigation-menu (
         layout {
             sequence: 10
         }
+        isCurrent {
+            type: pages
+            pages: [
+                1
+            ]
+        }
         link {
             target: {
                 page: 1
+            }
+        }
+    )
+
+    entry guide (
+        label: Guide
+        icon {
+            imageIconCssClasses: fa-graduation-cap
+        }
+        layout {
+            sequence: 15
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                900
+                910
+            ]
+        }
+        link {
+            target: {
+                page: 900
+            }
+        }
+    )
+
+    entry quick-start (
+        label: Quick start
+        layout {
+            sequence: 10
+            parentEntry: @guide
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                900
+            ]
+        }
+        link {
+            target: {
+                page: 900
+            }
+        }
+    )
+
+    entry examples (
+        label: Examples
+        layout {
+            sequence: 20
+            parentEntry: @guide
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                910
+            ]
+        }
+        link {
+            target: {
+                page: 910
             }
         }
     )
@@ -85,9 +188,129 @@ list navigation-menu (
         layout {
             sequence: 20
         }
+        isCurrent {
+            type: pages
+            pages: [
+                100
+                110
+                200
+                210
+                215
+            ]
+        }
         link {
             target: {
                 page: 100
+            }
+        }
+    )
+
+    entry environments (
+        label: Environments
+        icon {
+            imageIconCssClasses: fa-server
+        }
+        layout {
+            sequence: 30
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                300
+                310
+            ]
+        }
+        link {
+            target: {
+                page: 300
+            }
+        }
+    )
+
+    entry history (
+        label: History
+        icon {
+            imageIconCssClasses: fa-history
+        }
+        layout {
+            sequence: 40
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                400
+                410
+            ]
+        }
+        link {
+            target: {
+                page: 400
+            }
+        }
+    )
+
+    entry target-profiles (
+        label: Target profiles
+        icon {
+            imageIconCssClasses: fa-sliders
+        }
+        layout {
+            sequence: 50
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                500
+                510
+            ]
+        }
+        link {
+            target: {
+                page: 500
+            }
+        }
+    )
+
+    entry import (
+        label: Import
+        icon {
+            imageIconCssClasses: fa-upload
+        }
+        layout {
+            sequence: 60
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                700
+            ]
+        }
+        link {
+            target: {
+                page: 700
+            }
+        }
+    )
+
+    entry preflight (
+        label: Preflight
+        icon {
+            imageIconCssClasses: fa-check-circle-o
+        }
+        layout {
+            sequence: 70
+        }
+        isCurrent {
+            type: pages
+            pages: [
+                800
+                600
+                610
+            ]
+        }
+        link {
+            target: {
+                page: 800
             }
         }
     )

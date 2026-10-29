@@ -1,0 +1,549 @@
+page 910 (
+    name: Examples
+    alias: EXAMPLES
+    title: Examples
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: doNotFocusCursor
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+        formAutoComplete: false
+    }
+    help {
+        helpText: Ready-to-send requests against free public test APIs. Click a card, press Send. Start with Quick GET (paste a URL), then saved requests with {{base_url}} and variables, then POST / PUT / PATCH / DELETE. A card marked Needs ACL calls a host the database may not reach yet -- an admin runs scripts/grant_guide_hosts.sql once (the Blocked host card stays blocked on purpose). Reset examples puts every example back as it was.
+    }
+
+    region examplesHeadSR (
+        advanced {
+            htmlDomId: examplesHeadSR
+        }
+        name: Examples Header
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="arw-page-head">
+                  <h1 class="arw-page-title">Examples</h1>
+                </div>
+                <p class="arw-muted">Click a card, then press Send. <em>Needs ACL</em>: an admin runs <code>scripts/grant_guide_hosts.sql</code> once.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region quickGetCR (
+        advanced {
+            htmlDomId: quickGetCR
+        }
+        name: Quick GET: paste a URL
+        title: Quick GET: paste a URL
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'quick_get'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region collectionsCR (
+        advanced {
+            htmlDomId: collectionsCR
+        }
+        name: Collections and variables
+        title: Collections and variables
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'collections'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region sendingDataCR (
+        advanced {
+            htmlDomId: sendingDataCR
+        }
+        name: POST, PUT, PATCH, DELETE
+        title: POST, PUT, PATCH, DELETE
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'sending_data'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    region preflightCR (
+        advanced {
+            htmlDomId: preflightCR
+        }
+        name: Preflight
+        title: Preflight
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with w_examples as (
+                  select g.guide_example_id                                as guide_example_id
+                       , g.title                                           as title
+                       , g.summary                                         as summary
+                       , g.display_seq                                     as display_seq
+                       , s.endpoint_id                                     as endpoint_id
+                       , s.http_method                                     as http_method
+                       , s.display_url                                     as display_url
+                       , arw_preflight_api.host_of(
+                             p_url => arw_endpoint_api.display_url(
+                                          p_endpoint_id    => s.endpoint_id
+                                        , p_environment_id => arw_environments_api.resolve_environment_id(
+                                                                  p_collection_id    => s.collection_id
+                                                                , p_environment_name => :ARW_ENV_NAME
+                                                              )
+                                      )
+                         )                                                 as host
+                    from arw_guide_examples                g
+                    join arw_endpoint_summary_vw           s on s.endpoint_id = g.endpoint_id
+                   where g.category_code = 'preflight'
+                     and g.active_yn = 'Y'
+                ), w_granted as (
+                  select distinct w.guide_example_id                       as guide_example_id
+                    from w_examples                        w
+                    join user_host_aces                    a on w.host like replace(lower(a.host), '*', '%')
+                                                            and a.privilege = 'HTTP'
+                )
+                select w.guide_example_id                                  as guide_example_id
+                     , w.title                                             as title
+                     , w.summary                                           as summary
+                     , w.endpoint_id                                       as endpoint_id
+                     , w.http_method                                       as http_method
+                     , w.display_url                                       as display_url
+                     , case
+                         when gr.guide_example_id is null then 'Needs ACL'
+                       end                                                 as acl_badge
+                  from w_examples                          w
+                  left join w_granted                     gr on gr.guide_example_id = w.guide_example_id
+                 order by w.display_seq
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: GUIDE_EXAMPLE_ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <span class="arw-chip arw-chip--method">&HTTP_METHOD.</span> <span class="arw-mono">&DISPLAY_URL.</span>
+                ```
+        }
+        body {
+            advancedFormatting: false
+            column: SUMMARY
+        }
+        iconAndBadge {
+            badgeColumn: ACL_BADGE
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        messages {
+            whenNoDataFound: No examples yet -- press Reset examples.
+        }
+
+        action open-example (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 210
+                    items: {
+                        P210_ENDPOINT_ID: &ENDPOINT_ID.
+                    }
+                    clearCache: 210
+                }
+            }
+        )
+    )
+
+    button RESET_EXAMPLES (
+        buttonName: RESET_EXAMPLES
+        advanced {
+            htmlDomId: RESET_EXAMPLES
+        }
+        label: Reset examples
+        layout {
+            sequence: 10
+            region: @examplesHeadSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: Put every example back as it was? Your changes to them are lost.
+            style: warning
+        }
+    )
+
+    process reset-examples (
+        name: Reset Examples
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_guide_api.install_examples;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Examples restored.
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'RESET_EXAMPLES'
+                ```
+        }
+    )
+
+    branch back-to-examples (
+        name: Back To Examples
+        execution {
+            sequence: 10
+            point: afterProcessing
+        }
+        behavior {
+            type: pageOrUrl
+            target: {
+                page: 910
+            }
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'RESET_EXAMPLES'
+                ```
+        }
+    )
+
+)

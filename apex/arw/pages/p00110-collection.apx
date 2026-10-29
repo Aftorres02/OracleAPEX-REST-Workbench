@@ -16,6 +16,9 @@ page 110 (
     }
 
     region collectionForm (
+        advanced {
+            htmlDomId: collectionForm
+        }
         name: Collection
         type: form
         source {
@@ -36,6 +39,9 @@ page 110 (
     )
 
     region buttonsSR (
+        advanced {
+            htmlDomId: buttonsSR
+        }
         name: Buttons
         type: staticContent
         layout {
@@ -166,6 +172,9 @@ page 110 (
 
     button CANCEL (
         buttonName: CANCEL
+        advanced {
+            htmlDomId: CANCEL
+        }
         label: Cancel
         layout {
             sequence: 10
@@ -183,6 +192,9 @@ page 110 (
 
     button DELETE (
         buttonName: DELETE
+        advanced {
+            htmlDomId: DELETE
+        }
         label: Delete
         layout {
             sequence: 20
@@ -210,6 +222,9 @@ page 110 (
 
     button SAVE (
         buttonName: SAVE
+        advanced {
+            htmlDomId: SAVE
+        }
         label: Save
         layout {
             sequence: 30
@@ -232,6 +247,9 @@ page 110 (
 
     button CREATE (
         buttonName: CREATE
+        advanced {
+            htmlDomId: CREATE
+        }
         label: Create
         layout {
             sequence: 40

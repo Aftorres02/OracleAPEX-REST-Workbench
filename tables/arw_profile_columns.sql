@@ -9,6 +9,8 @@
 -- @author  Angel Flores (Developer)
 -- @created September 09, 2026
 -- @ticket  N/A (Phase 0 - initial ARW data model)
+-- @ticket  #25 (observation_note -- see release/code/discovery_upgrade.sql
+--          for existing schemas)
 -- =============================================================================
 -- Note: the audit compound trigger lives in a separate file
 -- (triggers/arw_profile_columns_compound_trg.sql) so release/all_triggers.sql
@@ -36,6 +38,7 @@ create table arw_profile_columns (
   , max_observed_length           number
   , is_nullable_yn                varchar2(1 char) default 'Y' not null
   , is_primary_key_yn             varchar2(1 char) default 'N' not null
+  , observation_note              varchar2(500 char)
   , active_yn                     varchar2(1 char) default 'Y' not null
   , created_by                    varchar2(60 char) default
                                   coalesce(
@@ -83,6 +86,7 @@ begin
   execute immediate 'comment on column arw_profile_columns.max_observed_length is ''Maximum length observed across the accumulated samples.''';
   execute immediate 'comment on column arw_profile_columns.is_nullable_yn is ''Y when the field is missing or null in at least one observed sample.''';
   execute immediate 'comment on column arw_profile_columns.is_primary_key_yn is ''Y when this field is proposed as a primary key (e.g. id, *_id, code, uuid).''';
+  execute immediate 'comment on column arw_profile_columns.observation_note is ''Why the proposal looks the way it does (e.g. missing in 1 of 3 samples -- marked as nullable).''';
   execute immediate 'comment on column arw_profile_columns.active_yn is ''Soft-delete flag: Y = active, N = inactive.''';
 end;
 /

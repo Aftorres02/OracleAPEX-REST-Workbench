@@ -31,5 +31,9 @@ as
   );
 
 
+  function drafts_collection_id
+  return arw_collections.collection_id%type;
+
+
 end arw_collections_api;
 /
