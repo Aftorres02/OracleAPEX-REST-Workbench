@@ -11,7 +11,7 @@ page 800 (
         formAutoComplete: false
     }
     help {
-        helpText: Checks everything an outbound call from the database needs for one host -- network ACL, wallet/TLS chain, database and APEX version, and the Web Credential -- before anything is executed. A failing check blocks executions; copy its script and run it as ADMIN, then press Re-check.
+        helpText: Checks everything an outbound call from the database needs for one host -- network ACL, wallet/TLS chain, database and APEX version -- before anything is executed. A failing check blocks executions; copy its script and run it as ADMIN, then press Re-check.
     }
 
     region preflightFilterSR (
@@ -67,6 +67,8 @@ page 800 (
                              p_host          => :P800_HOST
                            , p_credential_id => :P800_CREDENTIAL_ID
                          )) r
+                   where r.check_name != 'credential_exists'
+                      or :P800_CREDENTIAL_ID is not null
                 )
                 select :P800_HOST                                          as host
                      , count(case when c.status_code = 'fail' then 1 end)  as blocking_count
@@ -184,6 +186,8 @@ page 800 (
                          , p_credential_id => :P800_CREDENTIAL_ID
                        ))                                  r
                  cross join w_cred                         w
+                 where r.check_name != 'credential_exists'
+                    or :P800_CREDENTIAL_ID is not null
                 ```
             pageItemsToSubmit: [
                 P800_HOST
@@ -340,59 +344,14 @@ page 800 (
     )
 
     pageItem P800_CREDENTIAL_ID (
-        type: selectList
-        label {
-            label: Credential
-            alignment: left
-        }
-        lov {
-            type: sqlQuery
-            sqlQuery:
-                ```sql
-                select c.name || nvl2(c.apex_credential_static_id, ' (' || c.apex_credential_static_id || ')', null) as display_value
-                     , c.credential_id                                     as return_value
-                  from arw_credentials c
-                 where c.active_yn = 'Y'
-                 order by c.name
-                ```
-            displayNullValue: true
-            nullDisplayValue: - No credential -
-        }
+        type: hidden
         layout {
             sequence: 20
             region: @preflightFilterSR
             slot: regionBody
-            alignment: left
-            startNewRow: false
         }
-        appearance {
-            template: @/optional-floating
-            templateOptions: #DEFAULT#
-            height: 1
-        }
-    )
-
-    button CREDENTIALS (
-        buttonName: CREDENTIALS
-        advanced {
-            htmlDomId: CREDENTIALS
-        }
-        label: Credentials
-        layout {
-            sequence: 10
-            region: @preflightFilterSR
-            slot: NEXT
-        }
-        appearance {
-            buttonTemplate: @/text
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            action: redirectThisApp
-            target: {
-                page: 600
-            }
-            warnOnUnsavedChanges: doNotCheck
+        comments {
+            comments: Always null since Phase 2: APEX Web Credentials are hidden (docs/future/apex-credentials.md). Kept so the credential check can come back by turning this into a select list again.
         }
     )
 

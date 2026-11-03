@@ -507,6 +507,136 @@ as
 
 
   -- ===========================================================================
+  -- PROCEDURE: apply_simple_auth (private)
+  -- ===========================================================================
+  /**
+   * Applies the endpoint's simple auth (Auth tab): basic and bearer add an
+   * Authorization header, api_key adds a header or a query parameter. Runs
+   * after apply_request_headers, so it appends to the headers that function
+   * just reset. {{var}} tokens resolve from the environment. The secret is
+   * never logged and is redacted in the history summary.
+   *
+   * @example N/A -- private package-body unit, not callable outside arw_exec_api;
+   *           see execute_endpoint's runnable example, which exercises this indirectly.
+   *
+   * @issue   PHASE2-simplified (simple auth without APEX Web Credentials)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 03, 2026
+   *
+   * @param  p_endpoint_id     Endpoint whose auth is applied
+   * @param  p_environment_id  Environment whose {{var}} tokens are resolved
+   * @param  io_url            Final URL; an api_key in the query is appended to it
+   * @param  io_summary        Redacted header summary stored in arw_executions
+   */
+  procedure apply_simple_auth(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_environment_id                          in arw_environments.environment_id%type
+    , io_url                                    in out nocopy varchar2
+    , io_summary                                in out nocopy clob
+  )
+  is
+    l_scope      logger_logs.scope%type := gc_scope_prefix || 'apply_simple_auth';
+    l_params     logger.tab_param;
+    l_auth_type  arw_endpoints.auth_type_code%type;
+    l_username   arw_endpoints.auth_username%type;
+    l_password   arw_endpoints.auth_password%type;
+    l_token      arw_endpoints.auth_token%type;
+    l_key_name   arw_endpoints.auth_key_name%type;
+    l_key_value  arw_endpoints.auth_key_value%type;
+    l_key_in     arw_endpoints.auth_key_location_code%type;
+    l_header     varchar2(200 char);
+    l_value      varchar2(32767 char);
+    l_header_idx pls_integer;
+
+    -- Resolve {{var}} tokens in one auth value
+    function resolved(
+        p_text                                  in varchar2
+    )
+    return varchar2
+    is
+    begin
+      return substitute_variables(
+                 p_text                         => p_text
+               , p_environment_id               => p_environment_id
+               , p_url_encode_yn                => 'N'
+             );
+    end resolved;
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.append_param(l_params, 'p_environment_id', p_environment_id);
+    logger.log('START', l_scope, null, l_params);
+
+    select e.auth_type_code                                as auth_type_code
+         , e.auth_username                                 as auth_username
+         , e.auth_password                                 as auth_password
+         , e.auth_token                                    as auth_token
+         , e.auth_key_name                                 as auth_key_name
+         , e.auth_key_value                                as auth_key_value
+         , e.auth_key_location_code                        as auth_key_location_code
+      into l_auth_type
+         , l_username
+         , l_password
+         , l_token
+         , l_key_name
+         , l_key_value
+         , l_key_in
+      from arw_endpoints e
+     where e.endpoint_id = p_endpoint_id;
+
+    logger.append_param(l_params, 'auth_type_code', l_auth_type);
+
+    case l_auth_type
+      when 'basic' then
+        l_header := 'Authorization';
+        -- base64_encode wraps every 64 characters: strip the line breaks
+        l_value  := 'Basic ' || replace(replace(
+                        utl_raw.cast_to_varchar2(utl_encode.base64_encode(utl_i18n.string_to_raw(
+                            resolved(l_username) || ':' || resolved(l_password)
+                          , 'AL32UTF8'
+                        )))
+                      , chr(13)), chr(10));
+      when 'bearer' then
+        l_header := 'Authorization';
+        l_value  := 'Bearer ' || resolved(l_token);
+      when 'api_key' then
+        if l_key_in = 'query' then
+          io_url := io_url
+                    || case when instr(io_url, '?') > 0 then chr(38) else '?' end
+                    || apex_util.url_encode(l_key_name) || '='
+                    || apex_util.url_encode(resolved(l_key_value));
+          io_summary := io_summary || '(API key in query parameter ' || l_key_name || ', redacted)' || chr(10);
+        else
+          l_header := l_key_name;
+          l_value  := resolved(l_key_value);
+        end if;
+      else
+        null;
+    end case;
+
+    if l_header is not null then
+      l_header_idx := apex_web_service.g_request_headers.count + 1;
+      apex_web_service.g_request_headers(l_header_idx).name  := l_header;
+      apex_web_service.g_request_headers(l_header_idx).value := l_value;
+
+      io_summary := io_summary || l_header || ': ***REDACTED***' || chr(10);
+    end if;
+
+    logger.log('END', l_scope, null, l_params);
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end apply_simple_auth;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
   -- FUNCTION: log_execution (private)
   -- ===========================================================================
   /**
@@ -739,6 +869,7 @@ as
    *
    * @issue   N/A (Phase 0 - initial ARW packages)
    * @issue   #25 (Phase 1 - record preflight-refused attempts, full error stack)
+   * @issue   PHASE2-simplified (simple auth: basic, bearer, api_key)
    *
    * @author  Angel Flores (Developer)
    * @created September 13, 2026
@@ -947,6 +1078,13 @@ as
       , p_environment_id                        => p_environment_id
       , p_credential_static_id                  => l_credential_static_id
       , p_content_type                          => l_content_type
+    );
+
+    apply_simple_auth(
+        p_endpoint_id                           => p_endpoint_id
+      , p_environment_id                        => p_environment_id
+      , io_url                                  => l_url
+      , io_summary                              => l_request_headers
     );
 
     l_start_cs := dbms_utility.get_time;

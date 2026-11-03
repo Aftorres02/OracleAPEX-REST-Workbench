@@ -72,6 +72,7 @@ as
     , credential_name                           arw_credentials.name%type
     , auth_type_code                            arw_credentials.auth_type_code%type
     , credential_static_id                      arw_credentials.apex_credential_static_id%type
+    , api_key_name                              arw_endpoints.auth_key_name%type
     , base_url                                  varchar2(1000 char)
     , content_type                              arw_request_bodies.content_type%type
     , body_template                             clob
@@ -372,6 +373,8 @@ as
     l_params         logger.tab_param;
     l_ctx            t_ctx;
     l_collection_id  arw_endpoints.collection_id%type;
+    l_simple_auth    arw_endpoints.auth_type_code%type;
+    l_key_in         arw_endpoints.auth_key_location_code%type;
     l_environment_id arw_environments.environment_id%type;
     l_uses_secret    boolean;
     l_idx            pls_integer := 0;
@@ -393,6 +396,9 @@ as
            , e.engine_code                                 as engine_code
            , e.credential_id                               as credential_id
            , e.collection_id                               as collection_id
+           , e.auth_type_code                              as auth_type_code
+           , e.auth_key_name                               as auth_key_name
+           , e.auth_key_location_code                      as auth_key_location_code
         into l_ctx.endpoint_id
            , l_ctx.endpoint_name
            , l_ctx.collection_name
@@ -403,6 +409,9 @@ as
            , l_ctx.engine_code
            , l_ctx.credential_id
            , l_collection_id
+           , l_simple_auth
+           , l_ctx.api_key_name
+           , l_key_in
         from arw_endpoints   e
         join arw_collections c on c.collection_id = e.collection_id
        where e.endpoint_id = p_endpoint_id
@@ -426,6 +435,24 @@ as
         when no_data_found then
           l_ctx.credential_id := null;
       end;
+    end if;
+
+    -- ===========================================================================
+    -- Simple auth (Auth tab): generated code never carries the secret, so it
+    -- is rendered as a Web Credential the developer creates in APEX, named
+    -- after the collection and the auth type (e.g. JSONPLACEHOLDER_BEARER).
+    -- ===========================================================================
+    if l_ctx.credential_id is null and l_simple_auth != 'none' then
+      l_ctx.auth_type_code       := case
+                                      when l_simple_auth = 'api_key' and l_key_in = 'query' then 'api_key_query'
+                                      when l_simple_auth = 'api_key'                        then 'api_key_header'
+                                      else l_simple_auth
+                                    end;
+      l_ctx.credential_static_id := upper(arw_render_utils.to_identifier(l_ctx.collection_name, 40))
+                                    || '_' || upper(l_simple_auth);
+      l_ctx.credential_name      := l_ctx.collection_name || ' (' || l_simple_auth || ')';
+    else
+      l_ctx.api_key_name := null;
     end if;
 
     -- ===========================================================================
@@ -2099,7 +2126,10 @@ as
     arw_render_utils.set_token(io_tokens, 'cred_id', apx_name(p_ctx.credential_static_id));
     arw_render_utils.set_token(io_tokens, 'cred_file', arw_render_utils.to_static_id(p_ctx.credential_static_id));
     arw_render_utils.set_token(io_tokens, 'cred_name', arw_render_utils.apx_text(nvl(p_ctx.credential_name, p_ctx.credential_static_id)));
-    arw_render_utils.set_token(io_tokens, 'api_key_name', case when p_ctx.auth_type_code = 'api_key_query' then 'api_key' else 'X-API-Key' end);
+    arw_render_utils.set_token(io_tokens, 'api_key_name', coalesce(
+                                                            p_ctx.api_key_name
+                                                          , case when p_ctx.auth_type_code = 'api_key_query' then 'api_key' else 'X-API-Key' end
+                                                          ));
     arw_render_utils.set_flag(io_tokens, 'rds_has_credential', has_credential(p_ctx));
 
     arw_render_utils.set_token(io_tokens, 'rds_id', arw_render_utils.to_static_id(p_ctx.endpoint_name));

@@ -18,8 +18,8 @@ page 210 (
              * ==========================================================================
              *
              * @description Client helpers for the endpoint editor: error reporting for
-             *              Send (page submit), tab switching and the Code-tab list
-             *              highlight.
+             *              Send (page submit), tab switching, the Auth tab fields
+             *              and the Code-tab list highlight.
              * @author      ARW (agent D2)
              * @created     October 2026
              * @issue       PHASE1-25, PHASE2-simplified
@@ -39,6 +39,12 @@ page 210 (
                 , ARTIFACT_SELECTOR: '#artifactListCR .arw-artifact'
                 , ACTIVE_CLASS: 'is-active'
                 , ERROR_ITEM: 'P210_ACTION_ERROR'
+                , AUTH_TYPE_ITEM: 'P210_AUTH_TYPE_CODE'
+                , AUTH_FIELDS: {
+                      basic: ['P210_AUTH_USERNAME', 'P210_AUTH_PASSWORD']
+                    , bearer: ['P210_AUTH_TOKEN']
+                    , api_key: ['P210_AUTH_KEY_NAME', 'P210_AUTH_KEY_VALUE', 'P210_AUTH_KEY_LOCATION_CODE']
+                  }
               };
 
               var _PREFIX = '[' + MODULE_NAME + ']';
@@ -109,6 +115,23 @@ page 210 (
               };
 
               /**
+               * Show only the Auth tab fields of the selected auth type
+               */
+              var toggleAuthFields = function() {
+                var authType = apex.item(CONFIG.AUTH_TYPE_ITEM).getValue();
+
+                Object.keys(CONFIG.AUTH_FIELDS).forEach(function(type) {
+                  CONFIG.AUTH_FIELDS[type].forEach(function(itemName) {
+                    if (type === authType) {
+                      apex.item(itemName).show();
+                    } else {
+                      apex.item(itemName).hide();
+                    }
+                  });
+                });
+              };
+
+              /**
                * Mark one Code-tab list entry as the active one
                * @param {Element} element - The clicked .arw-artifact button
                */
@@ -133,6 +156,9 @@ page 210 (
 
                   // Send
                 , afterSend: afterSend
+
+                  // Auth tab
+                , toggleAuthFields: toggleAuthFields
 
                   // Code tab
                 , markArtifactActive: markArtifactActive
@@ -476,23 +502,6 @@ page 210 (
         }
         appearance {
             template: @/blank-with-attributes
-            templateOptions: #DEFAULT#
-        }
-    )
-
-    region authButtonsSR (
-        advanced {
-            htmlDomId: authButtonsSR
-        }
-        name: Auth Buttons
-        type: staticContent
-        layout {
-            sequence: 10
-            parentRegion: @authSR
-            slot: SUB_REGIONS
-        }
-        appearance {
-            template: @/buttons-container
             templateOptions: #DEFAULT#
         }
     )
@@ -1886,31 +1895,24 @@ page 210 (
     // Items: Auth
     // =========================================================================
 
-    pageItem P210_CREDENTIAL_ID (
+    pageItem P210_AUTH_TYPE_CODE (
         type: selectList
         label {
-            label: Credential
+            label: Auth Type
             alignment: left
         }
         lov {
-            type: sqlQuery
-            sqlQuery:
-                ```sql
-                select cr.name || ' (' || cr.auth_type_code || ')'         as display_value
-                     , cr.credential_id                                    as return_value
-                  from arw_credentials cr
-                 where cr.active_yn = 'Y'
-                 order by cr.name
-                ```
+            type: staticValues
+            staticValues: STATIC2:No auth;none,Basic auth;basic,Bearer token;bearer,API key;api_key
             displayExtraValues: false
-            displayNullValue: true
-            nullDisplayValue: - No auth -
+            displayNullValue: false
         }
         layout {
             sequence: 10
             region: @authSR
             slot: regionBody
             alignment: left
+            columnSpan: 4
         }
         appearance {
             template: @/optional-floating
@@ -1919,11 +1921,201 @@ page 210 (
         }
         source {
             formRegion: @endpointForm
-            column: CREDENTIAL_ID
-            dataType: number
+            column: AUTH_TYPE_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: none
         }
         help {
-            inlineHelpText: The secret stays in an APEX Web Credential -- only its static ID is referenced
+            inlineHelpText: Values accept {{variables}} from the active environment, e.g. {{token}}
+        }
+    )
+
+    pageItem P210_AUTH_USERNAME (
+        type: textField
+        label {
+            label: Username
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @authSR
+            slot: regionBody
+            alignment: left
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 400
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_USERNAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P210_AUTH_PASSWORD (
+        type: textField
+        label {
+            label: Password
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @authSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_PASSWORD
+            dataType: varchar2
+        }
+    )
+
+    pageItem P210_AUTH_TOKEN (
+        type: textField
+        label {
+            label: Token
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @authSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            cssClasses: [
+                arw-mono
+            ]
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_TOKEN
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: Sent as Authorization: Bearer <token>
+        }
+    )
+
+    pageItem P210_AUTH_KEY_NAME (
+        type: textField
+        label {
+            label: Key Name
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @authSR
+            slot: regionBody
+            alignment: left
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 200
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_KEY_NAME
+            dataType: varchar2
+        }
+        help {
+            inlineHelpText: e.g. x-api-key
+        }
+    )
+
+    pageItem P210_AUTH_KEY_VALUE (
+        type: textField
+        label {
+            label: Key Value
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @authSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 5
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_KEY_VALUE
+            dataType: varchar2
+        }
+    )
+
+    pageItem P210_AUTH_KEY_LOCATION_CODE (
+        type: selectList
+        label {
+            label: Add To
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Header;header,Query params;query
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 70
+            region: @authSR
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            newColumn: true
+            columnSpan: 3
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            formRegion: @endpointForm
+            column: AUTH_KEY_LOCATION_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: header
         }
     )
 
@@ -2169,30 +2361,6 @@ page 210 (
         }
     )
 
-    button MANAGE_CREDENTIALS (
-        buttonName: MANAGE_CREDENTIALS
-        advanced {
-            htmlDomId: MANAGE_CREDENTIALS
-        }
-        label: Manage credentials
-        layout {
-            sequence: 10
-            region: @authButtonsSR
-            slot: PREVIOUS
-        }
-        appearance {
-            buttonTemplate: @/text
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            action: redirectThisApp
-            target: {
-                page: 600
-            }
-            warnOnUnsavedChanges: doNotCheck
-        }
-    )
-
     button DOWNLOAD (
         buttonName: DOWNLOAD
         advanced {
@@ -2340,6 +2508,33 @@ page 210 (
             execution {
                 sequence: 20
                 fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction toggle-auth-fields (
+        name: Toggle Auth Fields
+        execution {
+            sequence: 50
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_AUTH_TYPE_CODE
+        }
+
+        action show-auth-fields (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript
+                    arw.endpointEditor.toggleAuthFields();
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: true
             }
         )
 
@@ -2540,7 +2735,6 @@ page 210 (
                                            , p_name                   => :P210_NAME
                                            , p_http_method            => :P210_HTTP_METHOD
                                            , p_url_path               => :P210_URL_PATH
-                                           , p_credential_id          => :P210_CREDENTIAL_ID
                                            , p_timeout_secs           => :P210_TIMEOUT_SECS
                                            , p_runtime_target_code    => :P210_RUNTIME_TARGET_CODE
                                            , p_engine_code            => :P210_ENGINE_CODE
@@ -2551,7 +2745,7 @@ page 210 (
                     , p_name                          => :P210_NAME
                     , p_http_method                   => :P210_HTTP_METHOD
                     , p_url_path                      => :P210_URL_PATH
-                    , p_credential_id                 => :P210_CREDENTIAL_ID
+                    , p_credential_id                 => null
                     , p_timeout_secs                  => :P210_TIMEOUT_SECS
                     , p_runtime_target_code           => :P210_RUNTIME_TARGET_CODE
                     , p_engine_code                   => :P210_ENGINE_CODE
@@ -2599,6 +2793,37 @@ page 210 (
             plsqlExpression:
                 ```plsql
                 :REQUEST = 'DELETE'
+                ```
+        }
+    )
+
+    process save-auth (
+        name: Save Auth
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                arw_endpoint_api.set_auth(
+                    p_endpoint_id                   => :P210_ENDPOINT_ID
+                  , p_auth_type_code                => :P210_AUTH_TYPE_CODE
+                  , p_auth_username                 => :P210_AUTH_USERNAME
+                  , p_auth_password                 => :P210_AUTH_PASSWORD
+                  , p_auth_token                    => :P210_AUTH_TOKEN
+                  , p_auth_key_name                 => :P210_AUTH_KEY_NAME
+                  , p_auth_key_value                => :P210_AUTH_KEY_VALUE
+                  , p_auth_key_location_code        => :P210_AUTH_KEY_LOCATION_CODE
+                );
+                ```
+        }
+        execution {
+            sequence: 15
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )
