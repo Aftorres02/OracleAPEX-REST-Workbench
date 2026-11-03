@@ -144,7 +144,7 @@ page 210 (
         formAutoComplete: false
     }
     help {
-        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. The data profile (the response columns) is derived automatically from the last successful JSON response.
+        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. For a GET request, Download demo app (.zip) gives a complete app to import in App Builder (Import > Application). The data profile (the response columns) is derived automatically from the last successful JSON response.
     }
 
     // =========================================================================
@@ -2161,6 +2161,49 @@ page 210 (
     // Items: Code
     // =========================================================================
 
+    pageItem P210_DEMO_SECRETS_YN (
+        type: switch
+        label {
+            label: Include auth values in the demo app
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @codeFooterSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            useDefaults: false
+            onValue: Y
+            onLabel: Yes
+            offValue: N
+            offLabel: No
+        }
+        default {
+            type: static
+            staticValue: N
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :P210_HTTP_METHOD = 'GET' and :P210_AUTH_TYPE_CODE != 'none'
+                ```
+        }
+        help {
+            helpText: Yes = the demo app installs with the secret from the Auth tab (plain text, demo only). No = set it in Shared Components > Web Credentials after install.
+        }
+        comments {
+            comments: Read by the download-demo-app process from session state; the remember-demo-secrets dynamic action keeps it in sync.
+        }
+    )
+
     // =========================================================================
     // Items: {params} -- hidden page state
     // =========================================================================
@@ -2344,6 +2387,43 @@ page 210 (
         }
     )
 
+    button DOWNLOAD_APP (
+        buttonName: DOWNLOAD_APP
+        advanced {
+            htmlDomId: DOWNLOAD_APP
+        }
+        label: Download demo app (.zip)
+        layout {
+            sequence: 20
+            region: @codeFooterSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                items: {
+                    P210_ENDPOINT_ID: &P210_ENDPOINT_ID.
+                }
+                request: DOWNLOAD_APP
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :P210_HTTP_METHOD = 'GET'
+                ```
+        }
+    )
+
     // =========================================================================
     // Computations (before regions: after the form has been initialized)
     // =========================================================================
@@ -2493,6 +2573,36 @@ page 210 (
             execution {
                 sequence: 10
                 fireOnInit: true
+            }
+        )
+
+    )
+
+    dynamicAction remember-demo-secrets (
+        name: Remember Demo Secrets Choice
+        execution {
+            sequence: 55
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P210_DEMO_SECRETS_YN
+        }
+
+        action save-demo-secrets (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    null;
+                    ```
+                itemsToSubmit: [
+                    P210_DEMO_SECRETS_YN
+                ]
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
             }
         )
 
@@ -2700,6 +2810,50 @@ page 210 (
             plsqlExpression:
                 ```plsql
                 :REQUEST = 'DOWNLOAD' and :P210_ENDPOINT_ID is not null
+                ```
+        }
+    )
+
+    process download-demo-app (
+        name: Download Demo App
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                  l_zip                                     blob;
+                  l_file_name                               varchar2(400 char);
+                begin
+                  l_zip := arw_codegen_api.build_demo_app_zip(
+                               p_endpoint_id                 => :P210_ENDPOINT_ID
+                             , p_include_secrets_yn          => nvl(:P210_DEMO_SECRETS_YN, 'N')
+                           );
+                  l_file_name := replace(
+                                     arw_codegen_api.demo_app_file_name(p_endpoint_id => :P210_ENDPOINT_ID)
+                                   , '"'
+                                 );
+
+                  sys.htp.init;
+                  sys.owa_util.mime_header('application/zip', false);
+                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_zip));
+                  sys.htp.p('Content-Disposition: attachment; filename="' || l_file_name || '"');
+                  sys.owa_util.http_header_close;
+                  sys.wpg_docload.download_file(l_zip);
+
+                  apex_application.stop_apex_engine;
+                end;
+                ```
+        }
+        execution {
+            sequence: 7
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST = 'DOWNLOAD_APP' and :P210_ENDPOINT_ID is not null
                 ```
         }
     )

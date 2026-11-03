@@ -573,8 +573,22 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
   re-deriva con `arw_discover_api.auto_profile`. Se quitaron el card de
   profile y la página 215.
 
-- **Code:** en INSTALL solo queda `restDataSource`, con un único botón de
-  descarga.
+- **Code:** en INSTALL solo queda `restDataSource`. Hay dos descargas:
+
+  - **REST Data Source (.apx):** es un fragmento, no una app. App Builder
+    26.1 solo importa apps completas, así que este archivo se copia en el
+    árbol APEXlang de una app existente (un archivo por cada marca
+    `// file:`) y se importa con SQLcl (`apex import -input <carpeta>`).
+
+  - **Demo app (.zip), solo GET:** es una app APEXlang completa,
+    `arw_codegen_api.build_demo_app_zip`. Trae una página pública (sin
+    login) con un Interactive Report sobre el REST Data Source, más el
+    Remote Server y la Web Credential. Se importa en App Builder (Import >
+    Application, requiere ORDS 26.1.1+) o con SQLcl. No trae carpeta
+    `deployments`, así que quien importa elige el workspace y el ID. Con el
+    switch "Include auth values" activo, un supporting object guarda el
+    secreto del tab Auth en la Web Credential al instalar (texto plano,
+    solo para demo).
 
 - **Home:** fila "Get started" con 6 accesos directos.
 
