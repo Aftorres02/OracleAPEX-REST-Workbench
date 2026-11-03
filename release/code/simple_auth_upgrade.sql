@@ -32,7 +32,7 @@ declare
        and utc.column_name = upper(p_column_name);
 
     if l_count = 0 then
-      execute immediate 'alter table arw_endpoints add (' || p_column_name || ' ' || p_definition || ')';
+      execute immediate 'alter table arw_endpoints add (' || dbms_assert.simple_sql_name(p_column_name) || ' ' || p_definition || ')';
       dbms_output.put_line('arw_endpoints.' || p_column_name || ' added');
     end if;
   end add_column;
@@ -55,7 +55,7 @@ declare
        and uc.constraint_name = upper(p_constraint_name);
 
     if l_count = 0 then
-      execute immediate 'alter table arw_endpoints add constraint ' || p_constraint_name || ' check (' || p_condition || ')';
+      execute immediate 'alter table arw_endpoints add constraint ' || dbms_assert.simple_sql_name(p_constraint_name) || ' check (' || p_condition || ')';
       dbms_output.put_line(p_constraint_name || ' added');
     end if;
   end add_check;
@@ -75,7 +75,7 @@ begin
   -- ===========================================================================
   -- Comments (re-runnable by nature)
   -- ===========================================================================
-  execute immediate 'comment on column arw_endpoints.auth_type_code is ''Simple auth applied by ARW itself: none, basic, bearer or api_key. Independent of credential_id (APEX Web Credentials, hidden since Phase 2).''';
+  execute immediate 'comment on column arw_endpoints.auth_type_code is ''Simple auth applied by ARW itself: none, basic, bearer or api_key. Independent of credential_id (APEX Web Credentials, hidden since the Nov 2026 simplification).''';
   execute immediate 'comment on column arw_endpoints.auth_username is ''Basic auth user name; supports {{var}} tokens.''';
   execute immediate 'comment on column arw_endpoints.auth_password is ''Basic auth password, stored as typed (demo/beta); supports {{var}} tokens.''';
   execute immediate 'comment on column arw_endpoints.auth_token is ''Bearer token, stored as typed (demo/beta); supports {{var}} tokens.''';

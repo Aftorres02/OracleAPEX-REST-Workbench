@@ -14,7 +14,7 @@ page 1 (
         formAutoComplete: false
     }
     help {
-        helpText: Shortcuts to get started, collections at a glance and the latest executions. Try a sample request sends a ready GET with one click; click a collection card to open its endpoints, or an execution row to see its request and response.
+        helpText: Shortcuts to get started, collections at a glance and the latest executions. Try a sample request opens a ready GET -- press Send; click a collection card to open its endpoints, or an execution row to see its request and response.
     }
 
     region homeHeadSR (
@@ -59,6 +59,7 @@ page 1 (
                     from arw_endpoints   e
                     join arw_collections c on c.collection_id = e.collection_id
                    where c.name = 'DummyJSON'
+                     and c.active_yn = 'Y'
                      and e.name = 'Products'
                      and e.active_yn = 'Y'
                 ), w_cards as (

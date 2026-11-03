@@ -351,7 +351,7 @@ page 800 (
             slot: regionBody
         }
         comments {
-            comments: Always null since Phase 2: APEX Web Credentials are hidden (docs/future/apex-credentials.md). Kept so the credential check can come back by turning this into a select list again.
+            comments: Always null since the Nov 2026 simplification: APEX Web Credentials are hidden (docs/future/apex-credentials.md). Kept so the credential check can come back by turning this into a select list again.
         }
     )
 
@@ -363,10 +363,7 @@ page 800 (
         when {
             event: change
             selectionType: items
-            items: [
-                P800_HOST
-                P800_CREDENTIAL_ID
-            ]
+            items: P800_HOST
         }
 
         action refresh-head (

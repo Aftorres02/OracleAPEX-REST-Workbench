@@ -1,4 +1,4 @@
-# Target profiles (oculto desde Phase 2)
+# Target profiles (oculto desde la simplificación de nov 2026)
 
 Los target profiles se quitaron del menú y del editor para simplificar la
 app. Las páginas, la tabla y el paquete siguen instalados, sin uso desde la
@@ -68,4 +68,4 @@ Restaurar `P210_TARGET_PROFILE_ID` y pasarlo como `p_target_profile_id` a
 (proceso `download-bundle`).
 
 > **Nota:** el estado previo completo está en `main` antes del PR de
-> Phase 2: `git show 66eec29:apex/arw/pages/p00210-endpoint-editor.apx`.
+> simplificación: `git show 66eec29:apex/arw/pages/p00210-endpoint-editor.apx`.

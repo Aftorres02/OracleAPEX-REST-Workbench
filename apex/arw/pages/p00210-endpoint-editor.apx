@@ -18,8 +18,8 @@ page 210 (
              * ==========================================================================
              *
              * @description Client helpers for the endpoint editor: error reporting for
-             *              Send (page submit), tab switching, the Auth tab fields
-             *              and the Code-tab list highlight.
+             *              Send (page submit), the Auth tab fields and the Code-tab
+             *              list highlight.
              * @author      ARW (agent D2)
              * @created     October 2026
              * @issue       PHASE1-25, PHASE2-simplified
@@ -33,10 +33,7 @@ page 210 (
               var MODULE_NAME = 'EndpointEditor';
 
               var CONFIG = {
-                  TABS_REGION: 'responseTabsSR'
-                , TAB_ID_PREFIX: '#SR_'
-                , RESPONSE_REGION: 'responseSR'
-                , ARTIFACT_SELECTOR: '#artifactListCR .arw-artifact'
+                  ARTIFACT_SELECTOR: '#artifactListCR .arw-artifact'
                 , ACTIVE_CLASS: 'is-active'
                 , ERROR_ITEM: 'P210_ACTION_ERROR'
                 , AUTH_TYPE_ITEM: 'P210_AUTH_TYPE_CODE'
@@ -83,38 +80,6 @@ page 210 (
               /* ================================================================ */
 
               /**
-               * Activate the tab of the Tabs Container that shows the given region
-               * @param {string} regionStaticId - Static ID of the tab sub-region
-               */
-              var activateTab = function(regionStaticId) {
-                var tabId = CONFIG.TAB_ID_PREFIX + regionStaticId;
-                var tabs$ = $('#' + CONFIG.TABS_REGION).find('.t-Tabs').first();
-                var tab = null;
-
-                if (tabs$.length && tabs$.data('apex-aTabs')) {
-                  tab = tabs$.aTabs('getTab', tabId);
-                }
-                if (tab) {
-                  tab.makeActive();
-                  return;
-                }
-                var link$ = $('a[href="' + tabId + '"]');
-                if (link$.length) {
-                  link$.first().trigger('click');
-                } else {
-                  logger.warning('Tab not found', {region: regionStaticId});
-                }
-              };
-
-              /**
-               * After Send: report a refusal or failure and show the Response tab
-               */
-              var afterSend = function() {
-                _reportActionError();
-                activateTab(CONFIG.RESPONSE_REGION);
-              };
-
-              /**
                * Show only the Auth tab fields of the selected auth type
                */
               var toggleAuthFields = function() {
@@ -148,14 +113,8 @@ page 210 (
               /* Return public API                                                */
               /* ================================================================ */
               return {
-                  // Tabs
-                  activateTab: activateTab
-
                   // Page load: error left by the last Send
-                , reportActionError: _reportActionError
-
-                  // Send
-                , afterSend: afterSend
+                  reportActionError: _reportActionError
 
                   // Auth tab
                 , toggleAuthFields: toggleAuthFields
@@ -1232,17 +1191,20 @@ page 210 (
                          )                                                 as data_profile_id
                     from dual
                 )
-                select (
-                         select nullif(count(1), 0)                        as column_n
-                           from arw_profile_columns pc
-                          where pc.data_profile_id = w.data_profile_id
-                            and pc.parent_column_id is null
-                            and pc.active_yn = 'Y'
-                       )                                                   as column_count
-                     , case
-                         when :P210_EXECUTION_ID is not null then 'Y'
-                       end                                                 as executed_yn
-                  from w_profile w
+                , w_count as (
+                  select count(1)                                          as column_count
+                    from w_profile           w
+                    join arw_profile_columns pc on pc.data_profile_id = w.data_profile_id
+                   where pc.parent_column_id is null
+                     and pc.active_yn = 'Y'
+                )
+                select case
+                         when c.column_count > 0
+                         then 'Data profile: ' || c.column_count || ' columns from the last successful JSON response -- used by the REST Data Source in the Code tab'
+                         when :P210_EXECUTION_ID is not null
+                         then 'No data profile yet -- it is derived from the first successful JSON response'
+                       end                                                 as profile_note
+                  from w_count c
                 ```
             pageItemsToSubmit: [
                 P210_ENDPOINT_ID
@@ -1277,7 +1239,7 @@ page 210 (
             type: rowRangesXToYNoPagination
         }
 
-        column COLUMN_COUNT (
+        column PROFILE_NOTE (
             type: plainText
             heading {
                 heading: Data profile
@@ -1286,14 +1248,7 @@ page 210 (
                 sequence: 10
             }
             columnFormatting {
-                htmlExpression: <span class="arw-response-footer">{if COLUMN_COUNT/}Data profile: #COLUMN_COUNT# columns from the last successful JSON response &mdash; used by the REST Data Source in the Code tab{endif/}{if !COLUMN_COUNT/}{if EXECUTED_YN/}No data profile yet &mdash; it is derived from the first successful JSON response{endif/}{endif/}</span>
-            }
-        )
-
-        column EXECUTED_YN (
-            type: hidden
-            layout {
-                sequence: 30
+                htmlExpression: <span class="arw-response-footer">#PROFILE_NOTE#</span>
             }
         )
 
@@ -2242,7 +2197,7 @@ page 210 (
             sessionStateProtection: unrestricted
         }
         comments {
-            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Send / Add sample) and is used only as UI state, so checksum-based SSP would block the intended flow.
+            comments: UI state only: the last execution of this request, set by the compute-execution-id computation and the execute-request process.
         }
     )
 
@@ -2278,7 +2233,7 @@ page 210 (
             sessionStateProtection: unrestricted
         }
         comments {
-            comments: Same-page dynamic-action ownership: this hidden item is updated after render via itemsToReturn (Send / Derive / Accept error text) and is used only as UI state, so checksum-based SSP would block the intended flow.
+            comments: UI state only: the error text of the last Send, set by the execute-request process and shown once by the page-load JavaScript.
         }
     )
 
@@ -2598,6 +2553,102 @@ page 210 (
     )
 
     // =========================================================================
+    // Validations (Auth tab: before any process saves the request)
+    // =========================================================================
+
+    validation basic-username-required (
+        name: Basic Auth Needs Username
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsNotNull
+            item: P210_AUTH_USERNAME
+        }
+        error {
+            errorMessage: Basic auth needs a username.
+            associatedItem: @P210_AUTH_USERNAME
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND') and :P210_AUTH_TYPE_CODE = 'basic'
+                ```
+        }
+    )
+
+    validation bearer-token-required (
+        name: Bearer Auth Needs Token
+        execution {
+            sequence: 20
+        }
+        validation {
+            type: itemIsNotNull
+            item: P210_AUTH_TOKEN
+        }
+        error {
+            errorMessage: Bearer auth needs a token (it can be a {{variable}}).
+            associatedItem: @P210_AUTH_TOKEN
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND') and :P210_AUTH_TYPE_CODE = 'bearer'
+                ```
+        }
+    )
+
+    validation api-key-name-required (
+        name: API Key Needs Name
+        execution {
+            sequence: 30
+        }
+        validation {
+            type: itemIsNotNull
+            item: P210_AUTH_KEY_NAME
+        }
+        error {
+            errorMessage: An API key needs a name, e.g. x-api-key.
+            associatedItem: @P210_AUTH_KEY_NAME
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND') and :P210_AUTH_TYPE_CODE = 'api_key'
+                ```
+        }
+    )
+
+    validation api-key-value-required (
+        name: API Key Needs Value
+        execution {
+            sequence: 40
+        }
+        validation {
+            type: itemIsNotNull
+            item: P210_AUTH_KEY_VALUE
+        }
+        error {
+            errorMessage: An API key needs a value (it can be a {{variable}}).
+            associatedItem: @P210_AUTH_KEY_VALUE
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :REQUEST in ('SAVE', 'SEND') and :P210_AUTH_TYPE_CODE = 'api_key'
+                ```
+        }
+    )
+
+    // =========================================================================
     // Processes
     // =========================================================================
 
@@ -2904,7 +2955,7 @@ page 210 (
             language: plsql
             plsqlExpression:
                 ```plsql
-                :APEX$ROW_STATUS in ('C', 'U', 'D')
+                :APEX$ROW_STATUS in ('C', 'U', 'D') and :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )
@@ -2950,7 +3001,7 @@ page 210 (
             language: plsql
             plsqlExpression:
                 ```plsql
-                :APEX$ROW_STATUS in ('C', 'U', 'D')
+                :APEX$ROW_STATUS in ('C', 'U', 'D') and :REQUEST in ('SAVE', 'SEND')
                 ```
         }
     )

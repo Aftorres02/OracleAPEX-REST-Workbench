@@ -551,6 +551,18 @@ as
     l_postman_type := lower(p_auth.get_string('type'));
     logger.append_param(l_params, 'l_postman_type', l_postman_type);
 
+    -- An empty value (or a Postman v2.0 shape auth_attribute can't read)
+    -- imports the request without auth rather than failing the import.
+    if (l_postman_type = 'basic'  and auth_attribute(p_auth => p_auth, p_key => 'username') is null)
+       or (l_postman_type = 'bearer' and auth_attribute(p_auth => p_auth, p_key => 'token') is null)
+       or (l_postman_type = 'apikey' and (   auth_attribute(p_auth => p_auth, p_key => 'key') is null
+                                          or auth_attribute(p_auth => p_auth, p_key => 'value') is null))
+    then
+      note_skipped(p_reason => l_postman_type || ' auth without a value -- endpoint imported without auth');
+      logger.log('END - auth value missing', l_scope, null, l_params);
+      return;
+    end if;
+
     case l_postman_type
       when 'basic' then
         arw_endpoint_api.set_auth(
@@ -579,7 +591,7 @@ as
       when 'noauth' then
         null;
       else
-        note_skipped(p_reason => 'auth type "' || l_postman_type || '" not supported -- endpoint imported without auth');
+        note_skipped(p_reason => 'auth type "' || nvl(l_postman_type, '(none given)') || '" not supported -- endpoint imported without auth');
     end case;
 
     g_credential_n := g_credential_n + case when l_postman_type in ('basic', 'bearer', 'apikey') then 1 else 0 end;

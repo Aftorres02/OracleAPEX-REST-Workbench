@@ -1,8 +1,9 @@
-# Auth con APEX Web Credentials (oculto desde Phase 2)
+# Auth con APEX Web Credentials (oculto desde la simplificación de nov 2026)
 
-Desde Phase 2 el tab Auth del editor usa auth simple guardada en ARW. La
-integración con APEX Web Credentials sigue instalada, pero la UI ya no la
-usa. Este documento explica cómo funcionaba y cómo reactivarla.
+Desde la simplificación de nov 2026 el tab Auth del editor usa auth simple
+guardada en ARW. La integración con APEX Web Credentials sigue instalada,
+pero la UI ya no la usa. Este documento explica cómo funcionaba y cómo
+reactivarla.
 
 ---
 
@@ -31,7 +32,7 @@ nunca lo ve.
 
 ---
 
-## Qué cambió en Phase 2
+## Qué cambió en la simplificación
 
 ### Auth simple por request
 
@@ -93,4 +94,4 @@ Llamar a `resolve_credential` desde `import_request`; la función sigue en
 `arw_import_api`.
 
 > **Nota:** el estado previo completo está en `main` antes del PR de
-> Phase 2: `git show 66eec29:apex/arw/pages/p00210-endpoint-editor.apx`.
+> simplificación: `git show 66eec29:apex/arw/pages/p00210-endpoint-editor.apx`.

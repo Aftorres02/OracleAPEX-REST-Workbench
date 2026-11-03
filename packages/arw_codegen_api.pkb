@@ -450,7 +450,7 @@ as
                                     end;
       l_ctx.credential_static_id := upper(arw_render_utils.to_identifier(l_ctx.collection_name, 40))
                                     || '_' || upper(l_simple_auth);
-      l_ctx.credential_name      := l_ctx.collection_name || ' (' || l_simple_auth || ')';
+      l_ctx.credential_name      := substr(l_ctx.collection_name, 1, 180) || ' (' || l_simple_auth || ')';
     else
       l_ctx.api_key_name := null;
     end if;

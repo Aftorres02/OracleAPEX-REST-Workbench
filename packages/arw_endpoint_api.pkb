@@ -963,8 +963,10 @@ as
   /**
    * Sets the simple auth of an endpoint (Auth tab of the editor): none,
    * basic (user + password), bearer (token) or api_key (name + value, in a
-   * header or the query string). Only the fields of the chosen type are
-   * kept; the others are cleared. Values may hold {{var}} tokens, resolved
+   * header or the query string). Full replace: every argument left out is
+   * cleared, and only the fields of the chosen type are kept. A type other
+   * than none also unlinks a legacy APEX Web Credential (credential_id), so
+   * one auth applies, never two. Values may hold {{var}} tokens, resolved
    * from the environment at Send time. Values are never logged.
    *
    * @example
@@ -1012,7 +1014,11 @@ as
     logger.append_param(l_params, 'p_auth_key_location_code', p_auth_key_location_code);
     logger.log('START', l_scope, null, l_params);
 
-    if l_auth_type = 'basic' and p_auth_username is null then
+    if l_auth_type not in ('none', 'basic', 'bearer', 'api_key') then
+      raise_application_error(gc_err_invalid, 'Unknown auth type: ' || l_auth_type || ' (use none, basic, bearer or api_key).');
+    elsif coalesce(p_auth_key_location_code, 'header') not in ('header', 'query') then
+      raise_application_error(gc_err_invalid, 'An API key goes in the header or the query, not ' || p_auth_key_location_code || '.');
+    elsif l_auth_type = 'basic' and p_auth_username is null then
       raise_application_error(gc_err_invalid, 'Basic auth needs a user name.');
     elsif l_auth_type = 'bearer' and p_auth_token is null then
       raise_application_error(gc_err_invalid, 'Bearer auth needs a token.');
@@ -1022,6 +1028,7 @@ as
 
     update arw_endpoints e
        set e.auth_type_code         = l_auth_type
+         , e.credential_id          = case when l_auth_type = 'none' then e.credential_id end
          , e.auth_username          = case when l_auth_type = 'basic'   then p_auth_username end
          , e.auth_password          = case when l_auth_type = 'basic'   then p_auth_password end
          , e.auth_token             = case when l_auth_type = 'bearer'  then p_auth_token end

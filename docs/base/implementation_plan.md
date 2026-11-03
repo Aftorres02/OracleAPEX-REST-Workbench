@@ -555,6 +555,34 @@ Alcance: `is json validate using schema`, runner de colección.
 Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
 `jsonDualityView`, import de OpenAPI/Swagger.
 
+### Simplificación de la app (nov 2026)
+
+> **Estado:** rama `PHASE2-simplified-app`. Los 8 puntos y sus decisiones
+> están en `tmp/cambios.md`.
+
+- **Navegación:** Guide queda al final del menú. Target profiles queda
+  oculto (páginas 500/510 instaladas, sin enlace; ver
+  `docs/future/target-profiles.md`).
+
+- **Auth simple por request:** none, basic, bearer y API key, con
+  `{{variables}}`. Columnas nuevas en `arw_endpoints`
+  (`release/code/simple_auth_upgrade.sql`). Las Web Credentials de APEX
+  quedan ocultas (`docs/future/apex-credentials.md`).
+
+- **Data profile automático:** cada Send con respuesta JSON exitosa lo
+  re-deriva con `arw_discover_api.auto_profile`. Se quitaron el card de
+  profile y la página 215.
+
+- **Code:** en INSTALL solo queda `restDataSource`, con un único botón de
+  descarga.
+
+- **Home:** fila "Get started" con 6 accesos directos.
+
+- **Demo:** Sandbox (httpbin.org, dev y prod con distintas variables) y
+  DummyJSON (login real con token): `data/arw_seed_phase2_demo.sql`. ACL
+  agregada para `httpbin.org` y `httpbingo.org`; httpbingo responde 402
+  desde el ADB, así que no se usa.
+
 ---
 
 ## 6. Pendientes y decisiones abiertas

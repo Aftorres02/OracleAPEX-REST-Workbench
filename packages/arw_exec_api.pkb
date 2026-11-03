@@ -545,22 +545,35 @@ as
     l_key_name   arw_endpoints.auth_key_name%type;
     l_key_value  arw_endpoints.auth_key_value%type;
     l_key_in     arw_endpoints.auth_key_location_code%type;
-    l_header     varchar2(200 char);
+    l_header     arw_endpoints.auth_key_name%type;
     l_value      varchar2(32767 char);
     l_header_idx pls_integer;
 
-    -- Resolve {{var}} tokens in one auth value
+    -- Resolve {{var}} tokens in one auth value; a token left unresolved
+    -- (no environment, or no such variable) refuses the call instead of
+    -- sending the literal {{name}} to the remote host.
     function resolved(
         p_text                                  in varchar2
     )
     return varchar2
     is
+      l_text varchar2(32767 char);
     begin
-      return substitute_variables(
-                 p_text                         => p_text
-               , p_environment_id               => p_environment_id
-               , p_url_encode_yn                => 'N'
-             );
+      l_text := substitute_variables(
+                    p_text                      => p_text
+                  , p_environment_id            => p_environment_id
+                  , p_url_encode_yn             => 'N'
+                );
+
+      if regexp_like(l_text, '\{\{[^}]+\}\}') then
+        raise_application_error(
+            gc_err_param_unresolved
+          , 'Auth uses ' || regexp_substr(l_text, '\{\{[^}]+\}\}')
+            || ' but the active environment has no such variable -- add it, or choose an environment.'
+        );
+      end if;
+
+      return l_text;
     end resolved;
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
@@ -603,11 +616,11 @@ as
         if l_key_in = 'query' then
           io_url := io_url
                     || case when instr(io_url, '?') > 0 then chr(38) else '?' end
-                    || apex_util.url_encode(l_key_name) || '='
+                    || apex_util.url_encode(resolved(l_key_name)) || '='
                     || apex_util.url_encode(resolved(l_key_value));
           io_summary := io_summary || '(API key in query parameter ' || l_key_name || ', redacted)' || chr(10);
         else
-          l_header := l_key_name;
+          l_header := resolved(l_key_name);
           l_value  := resolved(l_key_value);
         end if;
       else
@@ -625,6 +638,7 @@ as
     logger.log('END', l_scope, null, l_params);
   exception
     when others then
+      apex_web_service.g_request_headers.delete;
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
   end apply_simple_auth;
@@ -1104,6 +1118,10 @@ as
       l_http_status_code     := apex_web_service.g_status_code;
       l_request_status_code  := 'success';
 
+      -- The headers hold the resolved auth secret: don't leave it in the
+      -- session for the next apex_web_service call.
+      apex_web_service.g_request_headers.delete;
+
       for i in 1 .. apex_web_service.g_headers.count loop
         l_response_headers := l_response_headers || apex_web_service.g_headers(i).name || ': '
                                || apex_web_service.g_headers(i).value || chr(10);
@@ -1124,6 +1142,7 @@ as
       end if;
     exception
       when others then
+        apex_web_service.g_request_headers.delete;
         l_end_cs               := dbms_utility.get_time;
         l_http_status_code     := null;
         -- The full error stack, not just sqlerrm: the root cause (e.g.

@@ -84,7 +84,7 @@ begin
   execute immediate 'comment on column arw_endpoints.timeout_secs is ''Call timeout, in seconds.''';
   execute immediate 'comment on column arw_endpoints.runtime_target_code is ''Target runtime for the generated code: apex (live session), job (scheduler, no APEX session) or autonomous.''';
   execute immediate 'comment on column arw_endpoints.engine_code is ''Invocation engine: apex_web_service, apex_web_service_b (blob), utl_http or dbms_cloud_send_request.''';
-  execute immediate 'comment on column arw_endpoints.auth_type_code is ''Simple auth applied by ARW itself: none, basic, bearer or api_key. Independent of credential_id (APEX Web Credentials, hidden since Phase 2).''';
+  execute immediate 'comment on column arw_endpoints.auth_type_code is ''Simple auth applied by ARW itself: none, basic, bearer or api_key. Independent of credential_id (APEX Web Credentials, hidden since the Nov 2026 simplification).''';
   execute immediate 'comment on column arw_endpoints.auth_username is ''Basic auth user name; supports {{var}} tokens.''';
   execute immediate 'comment on column arw_endpoints.auth_password is ''Basic auth password, stored as typed (demo/beta); supports {{var}} tokens.''';
   execute immediate 'comment on column arw_endpoints.auth_token is ''Bearer token, stored as typed (demo/beta); supports {{var}} tokens.''';

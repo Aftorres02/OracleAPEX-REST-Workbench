@@ -2179,9 +2179,10 @@ as
   /**
    * Keeps the endpoint's data profile in step with its last successful JSON
    * response, with no user action: saves the execution as a sample, makes it
-   * the endpoint's only active sample and derives the profile from it. An
-   * execution that does not qualify as a sample (error, non-2xx, binary or
-   * non-JSON body) leaves the current profile untouched.
+   * the endpoint's only active sample and derives the profile from it,
+   * replacing the previous one (accepted or not). An execution that does
+   * not qualify as a sample (error, non-2xx, binary or non-JSON body) leaves
+   * the current profile untouched; JSON with nothing to profile returns null.
    *
    * @example
    * set serveroutput on
@@ -2238,9 +2239,19 @@ as
        and s.sample_id != l_sample_id
        and s.active_yn = 'Y';
 
-    l_data_profile_id := derive_profile(
-                             p_endpoint_id          => l_endpoint_id
-                         );
+    begin
+      l_data_profile_id := derive_profile(
+                               p_endpoint_id        => l_endpoint_id
+                           );
+    exception
+      when others then
+        -- Valid JSON with nothing to profile ([], {}, no fields): no profile
+        if sqlcode in (gc_err_not_found, gc_err_invalid) then
+          logger.log('END - nothing to profile: ' || sqlerrm, l_scope, null, l_params);
+          return null;
+        end if;
+        raise;
+    end;
 
     logger.append_param(l_params, 'l_data_profile_id', l_data_profile_id);
     logger.log('END', l_scope, null, l_params);

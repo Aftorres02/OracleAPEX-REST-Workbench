@@ -1,6 +1,6 @@
 -- Implements: .claude/rules/ddl-conventions.md section 8 (seed data pattern), sql-format.md section 9 (merge)
 -- =============================================================================
--- Data: Phase 2 demo data -- simple auth and environments with real public
+-- Data: Simplified-app demo data (Nov 2026) -- simple auth and environments with real public
 --       APIs the schema has a network ACE for:
 --         * Collection "Sandbox" (httpbin.org): environments "dev" and
 --           "prod" on the same host with different {{variables}} (user,
@@ -543,3 +543,5 @@ begin
   end loop;
 end;
 /
+
+commit;
