@@ -2174,6 +2174,92 @@ as
 
 
   -- ===========================================================================
+  -- FUNCTION: auto_profile
+  -- ===========================================================================
+  /**
+   * Keeps the endpoint's data profile in step with its last successful JSON
+   * response, with no user action: saves the execution as a sample, makes it
+   * the endpoint's only active sample and derives the profile from it. An
+   * execution that does not qualify as a sample (error, non-2xx, binary or
+   * non-JSON body) leaves the current profile untouched.
+   *
+   * @example
+   * set serveroutput on
+   * declare
+   *   l_data_profile_id arw_data_profiles.data_profile_id%type;
+   * begin
+   *   l_data_profile_id := arw_discover_api.auto_profile(
+   *       p_execution_id                       => 1
+   *   );
+   *   dbms_output.put_line('data_profile_id = ' || nvl(to_char(l_data_profile_id), '<unchanged>'));
+   * end;
+   * /
+   *
+   * @issue   PHASE2-simplified (automatic data profile)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 03, 2026
+   *
+   * @param p_execution_id Execution just sent from the editor
+   * @return arw_data_profiles.data_profile_id%type  New profile id, or null when the execution does not qualify
+   */
+  function auto_profile(
+      p_execution_id                            in arw_executions.execution_id%type
+  )
+  return arw_data_profiles.data_profile_id%type
+  is
+    l_scope           logger_logs.scope%type := gc_scope_prefix || 'auto_profile';
+    l_params          logger.tab_param;
+    l_sample_id       arw_response_samples.sample_id%type;
+    l_endpoint_id     arw_response_samples.endpoint_id%type;
+    l_data_profile_id arw_data_profiles.data_profile_id%type;
+  begin
+    logger.append_param(l_params, 'p_execution_id', p_execution_id);
+    logger.log('START', l_scope, null, l_params);
+
+    l_sample_id := save_sample(
+                       p_execution_id               => p_execution_id
+                   );
+
+    if l_sample_id is null then
+      logger.log('END - execution does not qualify, profile unchanged', l_scope, null, l_params);
+      return null;
+    end if;
+
+    select s.endpoint_id                                   as endpoint_id
+      into l_endpoint_id
+      from arw_response_samples s
+     where s.sample_id = l_sample_id;
+
+    -- Only the last response counts: a changed URL must not mix old columns in
+    update arw_response_samples s
+       set s.active_yn = 'N'
+     where s.endpoint_id = l_endpoint_id
+       and s.sample_id != l_sample_id
+       and s.active_yn = 'Y';
+
+    l_data_profile_id := derive_profile(
+                             p_endpoint_id          => l_endpoint_id
+                         );
+
+    logger.append_param(l_params, 'l_data_profile_id', l_data_profile_id);
+    logger.log('END', l_scope, null, l_params);
+
+    return l_data_profile_id;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end auto_profile;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
   -- FUNCTION: current_profile_id
   -- ===========================================================================
   /**

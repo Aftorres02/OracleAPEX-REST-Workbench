@@ -166,8 +166,8 @@ page 900 (
                     from dual
                    union all
                   select 20                                                as card_seq
-                       , 'Response, data profile and code'                 as title
-                       , 'After a Send: Derive data profile, then the Code tab writes PL/SQL or APEXlang.' as body
+                       , 'Response and code'                               as title
+                       , 'After a Send, the Code tab writes PL/SQL or a REST Data Source to download.' as body
                        , 'fa-code'                                         as icon
                        , apex_page.get_url(
                              p_page        => 210
