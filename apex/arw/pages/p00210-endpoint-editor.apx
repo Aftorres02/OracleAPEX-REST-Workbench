@@ -500,23 +500,6 @@ page 210 (
         }
     )
 
-    region generalButtonsSR (
-        advanced {
-            htmlDomId: generalButtonsSR
-        }
-        name: General Buttons
-        type: staticContent
-        layout {
-            sequence: 10
-            parentRegion: @endpointForm
-            slot: SUB_REGIONS
-        }
-        appearance {
-            template: @/buttons-container
-            templateOptions: #DEFAULT#
-        }
-    )
-
     // -------------------------------------------------------------------------
     // Tab: Auth
     // -------------------------------------------------------------------------
@@ -1880,93 +1863,6 @@ page 210 (
         }
     )
 
-    region codeChipsCR (
-        advanced {
-            htmlDomId: codeChipsCR
-        }
-        name: Target Profile Settings
-        type: classicReport
-        source {
-            location: localDatabase
-            type: sqlQuery
-            sqlQuery:
-                ```sql
-                select e.runtime_target_code                               as runtime_target_code
-                     , tp.trace_mode_code                                  as trace_mode_code
-                     , case tp.audit_enabled_yn
-                         when 'Y' then 'yes'
-                         when 'N' then 'no'
-                       end                                                 as audit_label
-                  from arw_endpoints                       e
-                  left join arw_target_profiles           tp on tp.target_profile_id = coalesce(
-                                                                    to_number(:P210_TARGET_PROFILE_ID)
-                                                                  , arw_target_profiles_api.default_profile_id
-                                                                )
-                                                             and tp.active_yn = 'Y'
-                 where e.endpoint_id = :P210_ENDPOINT_ID
-                ```
-            pageItemsToSubmit: [
-                P210_ENDPOINT_ID
-                P210_TARGET_PROFILE_ID
-            ]
-        }
-        layout {
-            sequence: 10
-            parentRegion: @codePanelSR
-            slot: SUB_REGIONS
-        }
-        appearance {
-            template: @/blank-with-attributes
-            templateOptions: #DEFAULT#
-            cssClasses: [
-                arw-plain
-            ]
-        }
-        componentAppearance {
-            template: @/standard
-            templateOptions: [
-                #DEFAULT#
-                t-Report--stretch
-                t-Report--noBorders
-                t-Report--rowHighlightOff
-            ]
-        }
-        heading {
-            type: none
-        }
-        pagination {
-            type: rowRangesXToYNoPagination
-        }
-
-        column RUNTIME_TARGET_CODE (
-            type: plainText
-            heading {
-                heading: Settings
-            }
-            layout {
-                sequence: 10
-            }
-            columnFormatting {
-                htmlExpression: <div class="arw-chips"><span class="arw-chip">Runtime: #RUNTIME_TARGET_CODE#</span>{if TRACE_MODE_CODE/}<span class="arw-chip">Tracing: #TRACE_MODE_CODE#</span><span class="arw-chip">Audit: #AUDIT_LABEL#</span>{endif/}{if !TRACE_MODE_CODE/}<span class="arw-chip arw-chip--warn">No target profile</span>{endif/}</div>
-            }
-        )
-
-        column TRACE_MODE_CODE (
-            type: hidden
-            layout {
-                sequence: 20
-            }
-        )
-
-        column AUDIT_LABEL (
-            type: hidden
-            layout {
-                sequence: 30
-            }
-        )
-
-    )
-
     region codeDC (
         advanced {
             htmlDomId: codeDC
@@ -1988,7 +1884,6 @@ page 210 (
                   l_code := arw_codegen_api.get_artifact(
                                 p_endpoint_id                 => :P210_ENDPOINT_ID
                               , p_artifact_type_code          => :P210_ARTIFACT_TYPE
-                              , p_target_profile_id           => :P210_TARGET_PROFILE_ID
                             );
 
                   if l_code is null or dbms_lob.getlength(l_code) = 0 then
@@ -2027,7 +1922,6 @@ page 210 (
             pageItemsToSubmit: [
                 P210_ENDPOINT_ID
                 P210_ARTIFACT_TYPE
-                P210_TARGET_PROFILE_ID
             ]
         }
         layout {
@@ -2540,38 +2434,6 @@ page 210 (
     // Items: Code
     // =========================================================================
 
-    pageItem P210_TARGET_PROFILE_ID (
-        type: selectList
-        label {
-            label: Target Profile
-            alignment: left
-        }
-        lov {
-            type: sqlQuery
-            sqlQuery:
-                ```sql
-                select tp.name                                             as display_value
-                     , tp.target_profile_id                                as return_value
-                  from arw_target_profiles tp
-                 where tp.active_yn = 'Y'
-                 order by tp.target_profile_id
-                ```
-            displayExtraValues: false
-            displayNullValue: false
-        }
-        layout {
-            sequence: 10
-            region: @codePanelSR
-            slot: regionBody
-            alignment: left
-        }
-        appearance {
-            template: @/optional-floating
-            templateOptions: #DEFAULT#
-            height: 1
-        }
-    )
-
     pageItem P210_BUNDLE_TYPES (
         type: checkboxGroup
         label {
@@ -2757,13 +2619,17 @@ page 210 (
         }
         label: Delete
         layout {
-            sequence: 10
-            region: @generalButtonsSR
-            slot: DELETE
+            sequence: 30
+            region: @requestSR
+            slot: NEXT
         }
         appearance {
             buttonTemplate: @/text
-            templateOptions: #DEFAULT#
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
         }
         behavior {
             executeValidations: false
@@ -2986,26 +2852,6 @@ page 210 (
         serverSideCondition {
             type: itemIsNotNull
             item: P210_ENDPOINT_ID
-        }
-    )
-
-    computation compute-target-profile-id (
-        itemName: P210_TARGET_PROFILE_ID
-        execution {
-            sequence: 40
-            point: beforeRegions
-        }
-        computation {
-            type: expression
-            language: plsql
-            plsqlExpression:
-                ```plsql
-                arw_target_profiles_api.default_profile_id
-                ```
-        }
-        serverSideCondition {
-            type: itemIsNull
-            item: P210_TARGET_PROFILE_ID
         }
     )
 
@@ -3566,43 +3412,6 @@ page 210 (
 
     )
 
-    dynamicAction change-target-profile (
-        name: Change Target Profile
-        execution {
-            sequence: 70
-        }
-        when {
-            event: change
-            selectionType: items
-            items: P210_TARGET_PROFILE_ID
-        }
-
-        action refresh-code-chips (
-            action: refresh
-            affectedElements {
-                selectionType: region
-                region: @codeChipsCR
-            }
-            execution {
-                sequence: 10
-                fireOnInit: false
-            }
-        )
-
-        action refresh-code-for-profile (
-            action: refresh
-            affectedElements {
-                selectionType: region
-                region: @codeDC
-            }
-            execution {
-                sequence: 20
-                fireOnInit: false
-            }
-        )
-
-    )
-
     dynamicAction change-bundle-types (
         name: Change Bundle Types
         execution {
@@ -3666,7 +3475,6 @@ page 210 (
                   l_bundle := arw_codegen_api.build_apx_bundle(
                                   p_endpoint_id                 => :P210_ENDPOINT_ID
                                 , p_artifact_type_codes         => :P210_BUNDLE_TYPES
-                                , p_target_profile_id           => :P210_TARGET_PROFILE_ID
                               );
                   l_file_name := replace(
                                      arw_codegen_api.bundle_file_name(p_endpoint_id => :P210_ENDPOINT_ID)
