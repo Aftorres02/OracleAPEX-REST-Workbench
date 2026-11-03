@@ -15,8 +15,8 @@ as
 --            INSTALL apexlang_rds, apexlang_install_script,
 --                    apexlang_ai_tool, apexlang_automation
 --
---          build_demo_app_zip packs the REST Data Source of a GET request
---          into a ready-to-import APEXlang app (.zip) with a public report.
+--          build_demo_app_sql builds a ready-to-import app export (.sql)
+--          with a public report on a REST Data Source for a GET request.
 --
 -- =============================================================================
 
@@ -51,11 +51,11 @@ as
   return varchar2;
 
 
-  function build_demo_app_zip(
+  function build_demo_app_sql(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
     , p_include_secrets_yn                      in varchar2 default 'N'
   )
-  return blob;
+  return clob;
 
 
   function demo_app_file_name(

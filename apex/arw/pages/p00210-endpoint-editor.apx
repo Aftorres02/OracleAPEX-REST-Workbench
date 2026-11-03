@@ -144,7 +144,7 @@ page 210 (
         formAutoComplete: false
     }
     help {
-        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. For a GET request, Download demo app (.zip) gives a complete app to import in App Builder (Import > Application). The data profile (the response columns) is derived automatically from the last successful JSON response.
+        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. For a GET request, Download demo app (.sql) gives a complete app to import in App Builder (Import > Application). The data profile (the response columns) is derived automatically from the last successful JSON response.
     }
 
     // =========================================================================
@@ -2197,7 +2197,7 @@ page 210 (
                 ```
         }
         help {
-            helpText: Yes = the demo app installs with the secret from the Auth tab (plain text, demo only). No = set it in Shared Components > Web Credentials after install.
+            helpText: Yes = the demo app carries the secret from the Auth tab (plain text, demo only) and stores it in the Web Credential when you install its supporting objects. No = set it in Shared Components > Web Credentials after install.
         }
         comments {
             comments: Read by the download-demo-app process from session state; the remember-demo-secrets dynamic action keeps it in sync.
@@ -2392,7 +2392,7 @@ page 210 (
         advanced {
             htmlDomId: DOWNLOAD_APP
         }
-        label: Download demo app (.zip)
+        label: Download demo app (.sql)
         layout {
             sequence: 20
             region: @codeFooterSR
@@ -2821,24 +2821,27 @@ page 210 (
             plsqlCode:
                 ```plsql
                 declare
-                  l_zip                                     blob;
+                  l_file                                    blob;
                   l_file_name                               varchar2(400 char);
                 begin
-                  l_zip := arw_codegen_api.build_demo_app_zip(
-                               p_endpoint_id                 => :P210_ENDPOINT_ID
-                             , p_include_secrets_yn          => nvl(:P210_DEMO_SECRETS_YN, 'N')
-                           );
+                  l_file := apex_util.clob_to_blob(
+                                p_clob                       => arw_codegen_api.build_demo_app_sql(
+                                                                    p_endpoint_id        => :P210_ENDPOINT_ID
+                                                                  , p_include_secrets_yn => nvl(:P210_DEMO_SECRETS_YN, 'N')
+                                                                )
+                              , p_charset                    => 'AL32UTF8'
+                            );
                   l_file_name := replace(
                                      arw_codegen_api.demo_app_file_name(p_endpoint_id => :P210_ENDPOINT_ID)
                                    , '"'
                                  );
 
                   sys.htp.init;
-                  sys.owa_util.mime_header('application/zip', false);
-                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_zip));
+                  sys.owa_util.mime_header('application/sql', false);
+                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_file));
                   sys.htp.p('Content-Disposition: attachment; filename="' || l_file_name || '"');
                   sys.owa_util.http_header_close;
-                  sys.wpg_docload.download_file(l_zip);
+                  sys.wpg_docload.download_file(l_file);
 
                   apex_application.stop_apex_engine;
                 end;

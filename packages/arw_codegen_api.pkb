@@ -2002,6 +2002,54 @@ as
 
 
   -- ===========================================================================
+  -- PROCEDURE: rds_url_parts (private)
+  -- ===========================================================================
+  /**
+   * Splits the request path for a REST Data Source: the URL path prefix is
+   * the static part before the first path parameter; the rest (with :name
+   * parameters) is the operation's URL pattern ("." when there is none).
+   *
+   * @example N/A -- private package-body unit; exercised through get_artifact.
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param p_ctx Generation context
+   * @param o_prefix URL path prefix
+   * @param o_pattern Operation URL pattern
+   */
+  procedure rds_url_parts(
+      p_ctx                                     in t_ctx
+    , o_prefix                                  out varchar2
+    , o_pattern                                 out varchar2
+  )
+  is
+    l_path      varchar2(4000 char);
+    l_param_pos pls_integer;
+  begin
+    l_path      := regexp_replace(p_ctx.url_path, '\?.*$');
+    l_path      := regexp_replace(l_path, '\{\{([A-Za-z0-9_]+)\}\}', ':\1');
+    l_path      := regexp_replace(l_path, '\{([A-Za-z0-9_]+)\}', ':\1');
+    l_param_pos := regexp_instr(l_path, '/:[A-Za-z0-9_]');
+    if l_param_pos > 0 then
+      o_prefix  := substr(l_path, 1, l_param_pos);
+      o_pattern := substr(l_path, l_param_pos + 1);
+    else
+      o_prefix  := nvl(l_path, '/');
+      o_pattern := '.';
+    end if;
+  end rds_url_parts;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
   -- FUNCTION: apx_name (private)
   -- ===========================================================================
   /**
@@ -2066,8 +2114,6 @@ as
     l_params      logger.tab_param;
     l_lines       apex_t_varchar2 := apex_t_varchar2();
     l_host        varchar2(1000 char);
-    l_path        varchar2(4000 char);
-    l_param_pos   pls_integer;
     l_prefix      varchar2(4000 char);
     l_pattern     varchar2(4000 char);
     l_seq         pls_integer := 0;
@@ -2135,19 +2181,11 @@ as
     arw_render_utils.set_token(io_tokens, 'rds_id', arw_render_utils.to_static_id(p_ctx.endpoint_name));
     arw_render_utils.set_token(io_tokens, 'rds_name', arw_render_utils.apx_text(p_ctx.endpoint_name));
 
-    -- urlPathPrefix = static part before the first path parameter; the rest
-    -- (with :name parameters) is the operation's urlPattern
-    l_path      := regexp_replace(p_ctx.url_path, '\?.*$');
-    l_path      := regexp_replace(l_path, '\{\{([A-Za-z0-9_]+)\}\}', ':\1');
-    l_path      := regexp_replace(l_path, '\{([A-Za-z0-9_]+)\}', ':\1');
-    l_param_pos := regexp_instr(l_path, '/:[A-Za-z0-9_]');
-    if l_param_pos > 0 then
-      l_prefix  := substr(l_path, 1, l_param_pos);
-      l_pattern := substr(l_path, l_param_pos + 1);
-    else
-      l_prefix  := nvl(l_path, '/');
-      l_pattern := '.';
-    end if;
+    rds_url_parts(
+        p_ctx                                   => p_ctx
+      , o_prefix                                => l_prefix
+      , o_pattern                               => l_pattern
+    );
     arw_render_utils.set_token(io_tokens, 'rds_url_prefix', l_prefix);
     arw_render_utils.set_token(io_tokens, 'op_url_pattern', l_pattern);
     arw_render_utils.set_token(io_tokens, 'op_id', lower(p_ctx.http_method));
@@ -3104,174 +3142,16 @@ as
 
 
   -- ===========================================================================
-  -- PROCEDURE: add_zip_text (private)
+  -- FUNCTION: demo_secret_lines (private)
   -- ===========================================================================
   /**
-   * Adds a UTF-8 text file to a zip under construction.
-   *
-   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
-   *
-   * @issue   PHASE2-simplified (demo app download)
-   *
-   * @author  Angel Flores (Developer)
-   * @created November 3, 2026
-   *
-   * @param io_zip Zip being built with apex_zip
-   * @param p_path File path inside the zip
-   * @param p_text File content
-   */
-  procedure add_zip_text(
-      io_zip                                    in out nocopy blob
-    , p_path                                    in varchar2
-    , p_text                                    in clob
-  )
-  is
-    l_scope  logger_logs.scope%type := gc_scope_prefix || 'add_zip_text';
-    l_params logger.tab_param;
-  begin
-    apex_zip.add_file(
-        p_zipped_blob                           => io_zip
-      , p_file_name                             => p_path
-      , p_content                               => apex_util.clob_to_blob(
-                                                       p_clob    => p_text
-                                                     , p_charset => 'AL32UTF8'
-                                                   )
-    );
-  exception
-    when others then
-      logger.append_param(l_params, 'p_path', p_path);
-      logger.log_error('Unhandled Exception', l_scope, null, l_params);
-      raise;
-  end add_zip_text;
-
-
-
-
-
-
-
-
-  -- ===========================================================================
-  -- FUNCTION: demo_page_text (private)
-  -- ===========================================================================
-  /**
-   * Page 1 of the demo app: a public page with an Interactive Report on the
-   * REST Data Source, one column per top-level data profile column.
-   *
-   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
-   *
-   * @issue   PHASE2-simplified (demo app download)
-   *
-   * @author  Angel Flores (Developer)
-   * @created November 3, 2026
-   *
-   * @param p_ctx Generation context (must have a data profile)
-   * @return clob Content of pages/p00001-home.apx
-   */
-  function demo_page_text(
-      p_ctx                                     in t_ctx
-  )
-  return clob
-  is
-    l_scope  logger_logs.scope%type := gc_scope_prefix || 'demo_page_text';
-    l_params logger.tab_param;
-    l_lines  apex_t_varchar2 := apex_t_varchar2();
-    l_title  varchar2(400 char) := arw_render_utils.apx_text(p_ctx.endpoint_name);
-    l_seq    pls_integer := 0;
-  begin
-    add(l_lines, 'page 1 (');
-    add(l_lines, '    name: ' || l_title);
-    add(l_lines, '    alias: HOME');
-    add(l_lines, '    title: ' || l_title);
-    add(l_lines, '    appearance {');
-    add(l_lines, '        pageTemplate: @/standard');
-    add(l_lines, '        templateOptions: #DEFAULT#');
-    add(l_lines, '    }');
-    add(l_lines, '    security {');
-    add(l_lines, '        authentication: public');
-    add(l_lines, '    }');
-    add(l_lines, '');
-    add(l_lines, '    region ' || arw_render_utils.to_static_id(p_ctx.endpoint_name) || '-report (');
-    add(l_lines, '        name: ' || l_title);
-    add(l_lines, '        type: interactiveReport');
-    add(l_lines, '        source {');
-    add(l_lines, '            location: restSource');
-    add(l_lines, '            restSource: @' || arw_render_utils.to_static_id(p_ctx.endpoint_name));
-    add(l_lines, '        }');
-    add(l_lines, '        layout {');
-    add(l_lines, '            sequence: 10');
-    add(l_lines, '            slot: BODY');
-    add(l_lines, '        }');
-    add(l_lines, '        appearance {');
-    add(l_lines, '            template: @/interactive-report');
-    add(l_lines, '            templateOptions: #DEFAULT#');
-    add(l_lines, '        }');
-
-    -- Nested rows (array children) are not part of the report's row
-    for i in 1 .. p_ctx.profile_columns.count loop
-      continue when p_ctx.profile_columns(i).parent_column_id is not null
-                 or p_ctx.profile_columns(i).has_children_yn = 'Y';
-
-      l_seq := l_seq + 10;
-      add(l_lines, '');
-      add(l_lines, '        column ' || upper(p_ctx.profile_columns(i).ident) || ' (');
-      add(l_lines, '            type: plainText');
-      add(l_lines, '            heading {');
-      add(l_lines, '                heading: ' || arw_render_utils.apx_text(initcap(replace(p_ctx.profile_columns(i).ident, '_', ' '))));
-      add(l_lines, '            }');
-      add(l_lines, '            layout {');
-      add(l_lines, '                sequence: ' || l_seq);
-      add(l_lines, '            }');
-      add(l_lines, '            source {');
-      add(l_lines, '                dataType: ' || case
-                                                     when p_ctx.profile_columns(i).is_json_yn = 'Y' then 'CLOB'
-                                                     else case p_ctx.profile_columns(i).data_type_code
-                                                            when 'number'                   then 'NUMBER'
-                                                            when 'date'                     then 'DATE'
-                                                            when 'timestamp_with_time_zone' then 'TIMESTAMP_TZ'
-                                                            when 'clob'                     then 'CLOB'
-                                                            else 'STRING'
-                                                          end
-                                                   end);
-      add(l_lines, '            }');
-      add(l_lines, '        )');
-    end loop;
-
-    add(l_lines, '');
-    add(l_lines, '        savedReport primary (');
-    add(l_lines, '            visibility: primaryDefault');
-    add(l_lines, '            view {');
-    add(l_lines, '                rowsPerPage: 50');
-    add(l_lines, '            }');
-    add(l_lines, '        )');
-    add(l_lines, '    )');
-    add(l_lines, ')');
-
-    return join_lines(l_lines) || gc_lf;
-  exception
-    when others then
-      logger.log_error('Unhandled Exception', l_scope, null, l_params);
-      raise;
-  end demo_page_text;
-
-
-
-
-
-
-
-
-  -- ===========================================================================
-  -- FUNCTION: demo_secret_script (private)
-  -- ===========================================================================
-  /**
-   * Supporting objects of the demo app: an install script that stores the
+   * Install script of the demo app's supporting objects: stores the
    * request's auth values in the Web Credential, so the app works right
    * after install. Values come from the Auth tab, with {{variables}}
    * resolved against the same environment as the base URL (the
    * collection's first active one).
    *
-   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
+   * @example N/A -- private package-body unit; exercised through build_demo_app_sql.
    *
    * @issue   PHASE2-simplified (demo app download)
    *
@@ -3279,14 +3159,14 @@ as
    * @created November 3, 2026
    *
    * @param p_ctx Generation context with a simple-auth credential
-   * @return clob Content of supporting-objects/supporting-objects.apx
+   * @return apex_t_varchar2 Script lines
    */
-  function demo_secret_script(
+  function demo_secret_lines(
       p_ctx                                     in t_ctx
   )
-  return clob
+  return apex_t_varchar2
   is
-    l_scope          logger_logs.scope%type := gc_scope_prefix || 'demo_secret_script';
+    l_scope          logger_logs.scope%type := gc_scope_prefix || 'demo_secret_lines';
     l_params         logger.tab_param;
     l_lines          apex_t_varchar2 := apex_t_varchar2();
     l_username       arw_endpoints.auth_username%type;
@@ -3369,40 +3249,24 @@ as
     l_name_arg   := nvl(l_name_arg, 'p_client_id');
     l_secret_arg := nvl(l_secret_arg, 'p_client_secret');
 
-    add(l_lines, 'supportingObject (');
-    add(l_lines, '    advanced {');
-    add(l_lines, '        includeInAppExport: autoInstall');
-    add(l_lines, '    }');
-    add(l_lines, '');
-    add(l_lines, '    installScript set-credential-secret (');
-    add(l_lines, '        execution {');
-    add(l_lines, '            sequence: 10');
-    add(l_lines, '        }');
-    add(l_lines, '        script {');
-    add(l_lines, '            content:');
-    add(l_lines, '                ```');
-    add(l_lines, '                -- Demo only: the secret below was copied from ARW in plain text.');
-    add(l_lines, '                begin');
-    add(l_lines, '                  apex_credential.set_persistent_credentials(');
-    add(l_lines, '                      p_credential_static_id => ' || arw_render_utils.quote_literal(p_ctx.credential_static_id));
-    add(l_lines, '                    , ' || rpad(l_name_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_name));
-    add(l_lines, '                    , ' || rpad(l_secret_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_secret));
-    add(l_lines, '                  );');
-    add(l_lines, '                end;');
-    add(l_lines, '                /');
-    add(l_lines, '                ```');
-    add(l_lines, '        }');
-    add(l_lines, '    )');
-    add(l_lines, ')');
+    add(l_lines, '-- Demo only: the secret below was copied from ARW in plain text.');
+    add(l_lines, 'begin');
+    add(l_lines, '  apex_credential.set_persistent_credentials(');
+    add(l_lines, '      p_credential_static_id => ' || arw_render_utils.quote_literal(p_ctx.credential_static_id));
+    add(l_lines, '    , ' || rpad(l_name_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_name));
+    add(l_lines, '    , ' || rpad(l_secret_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_secret));
+    add(l_lines, '  );');
+    add(l_lines, 'end;');
+    add(l_lines, '/');
 
     logger.log('END', l_scope, null, l_params);
 
-    return join_lines(l_lines) || gc_lf;
+    return l_lines;
   exception
     when others then
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
-  end demo_secret_script;
+  end demo_secret_lines;
 
 
 
@@ -3412,31 +3276,38 @@ as
 
 
   -- ===========================================================================
-  -- FUNCTION: build_demo_app_zip
+  -- FUNCTION: build_demo_app_sql
   -- ===========================================================================
   /**
-   * Builds a ready-to-import APEXlang app (.zip) for a GET endpoint: a
-   * public page with an Interactive Report on the generated REST Data
-   * Source (with its Remote Server and, when the request has auth, its Web
-   * Credential). Import it in App Builder (Import > Application) or with
-   * SQLcl (apex import -input <file>.zip). The zip has no deployments
-   * folder, so the importer picks the workspace and application id.
+   * Builds a ready-to-import APEX application export (.sql, the classic
+   * export format) for a GET endpoint: a public page with an Interactive
+   * Report on a REST Data Source for the request, with its Remote Server
+   * and, when the request has auth, its Web Credential. Import it in App
+   * Builder (Import > Application) or run it with SQLcl.
+   *
+   * The file follows the export of the same app written in APEXlang and
+   * imported with SQLcl (APEX 26.1). App Builder imports a .sql export
+   * without ORDS, unlike an APEXlang zip.
+   *
+   * Remote Server and Web Credential are workspace components: when the
+   * current workspace already has one with the same static id, its id and
+   * settings are reused, so the import updates nothing.
    *
    * With p_include_secrets_yn = 'Y' the app also carries a supporting
-   * object install script that stores the request's auth values in the Web
-   * Credential; otherwise the developer sets them in Shared Components >
-   * Web Credentials after install.
+   * objects install script that stores the request's auth values in the
+   * Web Credential; otherwise the developer sets them in Shared Components
+   * > Web Credentials after install.
    *
    * @example
    * set serveroutput on
    * declare
-   *   l_zip blob;
+   *   l_sql clob;
    * begin
-   *   l_zip := arw_codegen_api.build_demo_app_zip(
+   *   l_sql := arw_codegen_api.build_demo_app_sql(
    *       p_endpoint_id                        => 64
    *     , p_include_secrets_yn                 => 'N'
    *   );
-   *   dbms_output.put_line(dbms_lob.getlength(l_zip) || ' bytes');
+   *   dbms_output.put_line(dbms_lob.getlength(l_sql) || ' characters');
    * end;
    * /
    *
@@ -3447,26 +3318,144 @@ as
    *
    * @param p_endpoint_id Endpoint (GET, with a data profile)
    * @param p_include_secrets_yn Y = install the auth values with the app
-   * @return blob Zip with the APEXlang app tree
+   * @return clob Application export script
    */
-  function build_demo_app_zip(
+  function build_demo_app_sql(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
     , p_include_secrets_yn                      in varchar2 default 'N'
   )
-  return blob
+  return clob
   is
-    l_scope    logger_logs.scope%type := gc_scope_prefix || 'build_demo_app_zip';
-    l_params   logger.tab_param;
-    l_ctx      t_ctx;
-    l_zip      blob;
-    l_rds      clob;
-    l_marker   constant varchar2(20 char) := gc_lf || '// file: ';
-    l_pos      pls_integer;
-    l_next     pls_integer;
-    l_eol      pls_integer;
-    l_path     varchar2(400 char);
-    l_title    varchar2(400 char);
-    l_lines    apex_t_varchar2 := apex_t_varchar2();
+    l_scope            logger_logs.scope%type := gc_scope_prefix || 'build_demo_app_sql';
+    l_params           logger.tab_param;
+    l_ctx              t_ctx;
+    l_lines            apex_t_varchar2 := apex_t_varchar2();
+    l_static_ids       apex_t_varchar2 := apex_t_varchar2();
+    l_secret_lines     apex_t_varchar2;
+    l_version_no       apex_release.version_no%type;
+    l_api_date         apex_release.api_compatibility%type;
+    l_workspace_id     apex_workspace_schemas.workspace_id%type;
+    l_workspace        apex_workspace_schemas.workspace_name%type;
+    l_owner            varchar2(128 char) := sys_context('userenv', 'current_schema');
+    l_app_id           pls_integer;
+    l_base_id          number;
+    l_next_id          pls_integer := 0;
+    l_title            varchar2(400 char);
+    l_rds_static_id    varchar2(255 char);
+    l_host             varchar2(1000 char);
+    l_server_id        number;
+    l_server_name      varchar2(400 char);
+    l_server_static_id varchar2(255 char);
+    l_server_url       varchar2(1000 char);
+    l_has_credential   boolean;
+    l_cred_id          number;
+    l_cred_name        varchar2(400 char);
+    l_cred_type        varchar2(100 char);
+    l_cred_comment     varchar2(4000 char);
+    l_module_id        number;
+    l_profile_id       number;
+    l_auth_id          number;
+    l_menu_id          number;
+    l_bar_id           number;
+    l_install_id       number;
+    l_worksheet_id     number;
+    l_prefix           varchar2(4000 char);
+    l_pattern          varchar2(4000 char);
+    l_n                pls_integer := 0;
+    l_col_type         varchar2(30 char);
+    l_report_columns   varchar2(4000 char);
+
+    function new_id
+    return number
+    is
+    begin
+      l_next_id := l_next_id + 1;
+      return l_base_id + l_next_id;
+    end new_id;
+
+    function imp_id(
+        p_id                                    in number
+    )
+    return varchar2
+    is
+    begin
+      return 'wwv_flow_imp.id(' || to_char(p_id, 'fm99999999999999999999') || ')';
+    end imp_id;
+
+    function lit(
+        p_text                                  in varchar2
+    )
+    return varchar2
+    is
+    begin
+      return arw_render_utils.quote_literal(p_text);
+    end lit;
+
+    function unique_static_id(
+        p_base                                  in varchar2
+    )
+    return varchar2
+    is
+      l_candidate varchar2(255 char) := p_base;
+      l_suffix    pls_integer := 1;
+    begin
+      while l_candidate member of l_static_ids loop
+        l_suffix    := l_suffix + 1;
+        l_candidate := p_base || '-' || l_suffix;
+      end loop;
+      l_static_ids.extend;
+      l_static_ids(l_static_ids.count) := l_candidate;
+      return l_candidate;
+    end unique_static_id;
+
+    -- IR column identifiers: A .. Z, AA .. ZZ
+    function column_identifier(
+        p_position                              in pls_integer
+    )
+    return varchar2
+    is
+    begin
+      return case
+               when p_position <= 26 then chr(64 + p_position)
+               else chr(64 + trunc((p_position - 1) / 26)) || chr(65 + mod(p_position - 1, 26))
+             end;
+    end column_identifier;
+
+    procedure open_block(
+        p_prompt                                in varchar2
+    )
+    is
+    begin
+      add(l_lines, 'prompt --' || p_prompt);
+      add(l_lines, 'begin');
+    end open_block;
+
+    procedure close_block
+    is
+    begin
+      add(l_lines, 'end;');
+      add(l_lines, '/');
+    end close_block;
+
+    procedure null_block(
+        p_prompt                                in varchar2
+    )
+    is
+    begin
+      open_block(p_prompt);
+      add(l_lines, 'null;');
+      close_block;
+    end null_block;
+
+    -- Data profile columns and report columns: top-level, non-array only
+    function is_report_column(
+        p_column                                in t_column_rec
+    )
+    return boolean
+    is
+    begin
+      return p_column.parent_column_id is null and nvl(p_column.has_children_yn, 'N') = 'N';
+    end is_report_column;
   begin
     logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
     logger.append_param(l_params, 'p_include_secrets_yn', p_include_secrets_yn);
@@ -3482,179 +3471,559 @@ as
       raise_application_error(gc_err_invalid_input, 'Send the request once (with a JSON response) so ARW can build the data profile.');
     end if;
 
-    l_title := arw_render_utils.apx_text(l_ctx.endpoint_name);
-    dbms_lob.createtemporary(l_zip, true);
+    select r.version_no                                    as version_no
+         , r.api_compatibility                             as api_compatibility
+      into l_version_no
+         , l_api_date
+      from apex_release r;
+
+    select s.workspace_id                                  as workspace_id
+         , s.workspace_name                                as workspace_name
+      into l_workspace_id
+         , l_workspace
+      from apex_workspace_schemas s
+     where s.schema = l_owner
+     order by s.workspace_id
+     fetch first 1 row only;
+
+    l_title          := l_ctx.endpoint_name;
+    l_app_id         := 100000 + p_endpoint_id;
+    l_base_id        := trunc(dbms_random.value(1e12, 9e12)) * 1000;
+    l_has_credential := has_credential(l_ctx);
+    l_rds_static_id  := arw_render_utils.to_static_id(l_ctx.endpoint_name);
 
     -- ---------------------------------------------------------------------------
-    -- REST Data Source, Remote Server and Web Credential: one file per
-    -- "// file:" marker of the apexlang_rds artifact
+    -- Workspace components: reuse the workspace's own when the static id exists
     -- ---------------------------------------------------------------------------
-    l_rds := gc_lf || get_artifact(
-                          p_endpoint_id                => p_endpoint_id
-                        , p_artifact_type_code         => 'apexlang_rds'
-                      );
-    l_pos := dbms_lob.instr(l_rds, l_marker);
-    while l_pos > 0 loop
-      l_eol  := dbms_lob.instr(l_rds, gc_lf, l_pos + length(l_marker));
-      l_path := trim(dbms_lob.substr(l_rds, l_eol - l_pos - length(l_marker), l_pos + length(l_marker)));
-      l_next := dbms_lob.instr(l_rds, l_marker, l_eol);
+    l_host             := nvl(regexp_substr(l_ctx.base_url, '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/:]+)', 1, 1, null, 1), 'rest-server');
+    l_server_static_id := arw_render_utils.to_static_id(l_host);
+    begin
+      select rs.remote_server_id                           as remote_server_id
+           , rs.remote_server_name                         as remote_server_name
+           , rs.base_url                                   as base_url
+        into l_server_id
+           , l_server_name
+           , l_server_url
+        from apex_workspace_remote_servers rs
+       where rs.workspace = l_workspace
+         and rs.remote_server_static_id = l_server_static_id;
+    exception
+      when no_data_found then
+        l_server_id   := new_id;
+        l_server_name := l_host;
+        l_server_url  := l_ctx.base_url || '/';
+    end;
 
-      add_zip_text(
-          io_zip                                => l_zip
-        , p_path                                => l_path
-        , p_text                                => rtrim(case
-                                                           when l_next > 0 then substr(l_rds, l_eol + 1, l_next - l_eol - 1)
-                                                           else substr(l_rds, l_eol + 1)
-                                                         end, gc_lf) || gc_lf
-      );
-      l_pos := l_next;
-    end loop;
-
-    -- ---------------------------------------------------------------------------
-    -- App shell: no login (noAuth), Universal Theme, one menu entry
-    -- ---------------------------------------------------------------------------
-    add_zip_text(l_zip, '.apex/apexlang.json', '{' || gc_lf || '  "mmdVersion" : "26.1.0+3102"' || gc_lf || '}' || gc_lf);
-
-    add(l_lines, 'app ' || upper(arw_render_utils.to_static_id(l_ctx.endpoint_name)) || '-DEMO (');
-    add(l_lines, '    name: ' || l_title || ' - ARW demo');
-    add(l_lines, '    logo {');
-    add(l_lines, '        type: text');
-    add(l_lines, '        text: ' || l_title);
-    add(l_lines, '    }');
-    add(l_lines, '    navigation {');
-    add(l_lines, '        homeUrl: {');
-    add(l_lines, '            page: 1');
-    add(l_lines, '        }');
-    add(l_lines, '    }');
-    add(l_lines, '    navigationMenu {');
-    add(l_lines, '        listTemplate: @/side-navigation-menu');
-    add(l_lines, '        templateOptions: #DEFAULT#');
-    add(l_lines, '        list: @navigation-menu');
-    add(l_lines, '    }');
-    add(l_lines, '    navigationBar {');
-    add(l_lines, '        list: @navigation-bar');
-    add(l_lines, '        listTemplate: @/navigation-bar');
-    add(l_lines, '        templateOptions: #DEFAULT#');
-    add(l_lines, '    }');
-    add(l_lines, '    userInterface {');
-    add(l_lines, '        currentTheme: @universal-theme');
-    add(l_lines, '        globalPage: 0');
-    add(l_lines, '    }');
-    add(l_lines, '    authentication {');
-    add(l_lines, '        scheme: @no-authentication');
-    add(l_lines, '    }');
-    add(l_lines, ')');
-    add_zip_text(l_zip, 'application.apx', join_lines(l_lines) || gc_lf);
-
-    add_zip_text(l_zip, 'shared-components/authentications.apx'
-                      , 'authentication no-authentication (' || gc_lf
-                     || '    name: No Authentication' || gc_lf
-                     || '    type: noAuth' || gc_lf
-                     || ')' || gc_lf);
-
-    l_lines := apex_t_varchar2();
-    add(l_lines, 'list navigation-menu (');
-    add(l_lines, '    name: Navigation Menu');
-    add(l_lines, '');
-    add(l_lines, '    entry home (');
-    add(l_lines, '        label: ' || l_title);
-    add(l_lines, '        icon {');
-    add(l_lines, '            imageIconCssClasses: fa-table');
-    add(l_lines, '        }');
-    add(l_lines, '        layout {');
-    add(l_lines, '            sequence: 10');
-    add(l_lines, '        }');
-    add(l_lines, '        link {');
-    add(l_lines, '            target: {');
-    add(l_lines, '                page: 1');
-    add(l_lines, '            }');
-    add(l_lines, '        }');
-    add(l_lines, '    )');
-    add(l_lines, ')');
-    add(l_lines, '');
-    add(l_lines, 'list navigation-bar (');
-    add(l_lines, '    name: Navigation Bar');
-    add(l_lines, ')');
-    add_zip_text(l_zip, 'shared-components/lists.apx', join_lines(l_lines) || gc_lf);
-
-    l_lines := apex_t_varchar2();
-    add(l_lines, 'theme universal-theme (');
-    add(l_lines, '    name: Universal Theme');
-    add(l_lines, '    themeNumber: 42');
-    add(l_lines, '    baseTheme: ut-26.1');
-    add(l_lines, '    style {');
-    add(l_lines, '        currentThemeStyle: @/iris');
-    add(l_lines, '    }');
-    add(l_lines, '    javaScript {');
-    add(l_lines, '        fileUrls: [');
-    add(l_lines, '            #APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.stickyWidget#MIN#.js?v=#APEX_VERSION#');
-    add(l_lines, '            #THEME_FILES#js/theme42#MIN#.js?v=#APEX_VERSION#');
-    add(l_lines, '        ]');
-    add(l_lines, '    }');
-    add(l_lines, '    css {');
-    add(l_lines, '        fileUrls: #THEME_FILES#css/Core#MIN#.css?v=#APEX_VERSION#');
-    add(l_lines, '    }');
-    add(l_lines, '    componentDefaults {');
-    add(l_lines, '        page: @/standard');
-    add(l_lines, '        navigationBarList: @/navigation-bar');
-    add(l_lines, '        navigationMenuListPosition: side');
-    add(l_lines, '        navigationMenuListTop: @/top-navigation-menu');
-    add(l_lines, '        navigationMenuListSide: @/side-navigation-menu');
-    add(l_lines, '        loginPage: @/login');
-    add(l_lines, '        errorPage: @/login');
-    add(l_lines, '        printerFriendlyPage: @/standard');
-    add(l_lines, '        breadcrumb: @/breadcrumb');
-    add(l_lines, '        button: @/text');
-    add(l_lines, '        defaultLabel: @/optional-floating');
-    add(l_lines, '        optionalLabel: @/optional-floating');
-    add(l_lines, '        requiredLabel: @/required-floating');
-    add(l_lines, '        list: @/links-list');
-    add(l_lines, '        region: @/standard');
-    add(l_lines, '        classicReport: @/standard');
-    add(l_lines, '    }');
-    add(l_lines, '    regionDefaults {');
-    add(l_lines, '        breadcrumbs: @/title-bar');
-    add(l_lines, '        charts: @/standard');
-    add(l_lines, '        forms: @/standard');
-    add(l_lines, '        lists: @/standard');
-    add(l_lines, '        reports: @/standard');
-    add(l_lines, '        wizards: @/standard');
-    add(l_lines, '        interactiveReports: @/interactive-report');
-    add(l_lines, '    }');
-    add(l_lines, '    dialogDefaults {');
-    add(l_lines, '        dialogContentRegion: @/blank-with-attributes');
-    add(l_lines, '        dialogButtonRegion: @/buttons-container');
-    add(l_lines, '        dialogPage: @/modal-dialog');
-    add(l_lines, '    }');
-    add(l_lines, '    icons {');
-    add(l_lines, '        library: fontApex');
-    add(l_lines, '    }');
-    add(l_lines, '    advanced {');
-    add(l_lines, '        filePrefix: #APEX_FILES#themes/theme_42/26.1/');
-    add(l_lines, '        identifier: UNIVERSAL_THEME');
-    add(l_lines, '    }');
-    add(l_lines, ')');
-    add_zip_text(l_zip, 'shared-components/themes/universal-theme/theme.apx', join_lines(l_lines) || gc_lf);
-
-    add_zip_text(l_zip, 'pages/p00000-global-page.apx', 'page 0 (' || gc_lf || '    name: Global Page' || gc_lf || ')' || gc_lf);
-    add_zip_text(l_zip, 'pages/p00001-home.apx', demo_page_text(l_ctx));
-
-    -- Secrets only for simple auth (Auth tab): a linked APEX Web Credential
-    -- already holds its own secret in the workspace
-    if p_include_secrets_yn = 'Y' and has_credential(l_ctx) and l_ctx.credential_id is null then
-      add_zip_text(l_zip, 'supporting-objects/supporting-objects.apx', demo_secret_script(l_ctx));
+    if l_has_credential then
+      begin
+        select c.credential_id                             as credential_id
+             , c.name                                      as name
+             , c.credential_type_code                      as credential_type_code
+             , c.comments                                  as comments
+          into l_cred_id
+             , l_cred_name
+             , l_cred_type
+             , l_cred_comment
+          from apex_workspace_credentials c
+         where c.workspace = l_workspace
+           and c.static_id = l_ctx.credential_static_id;
+      exception
+        when no_data_found then
+          l_cred_id      := new_id;
+          l_cred_name    := nvl(l_ctx.credential_name, l_ctx.credential_static_id);
+          l_cred_comment := 'Created by an ARW demo app. Set the secret in Shared Components > Web Credentials.';
+          l_cred_type    := case l_ctx.auth_type_code
+                              when 'basic'                     then 'BASIC'
+                              when 'bearer'                    then 'HTTP_HEADER'
+                              when 'api_key_header'            then 'HTTP_HEADER'
+                              when 'api_key_query'             then 'HTTP_QUERY_STRING'
+                              when 'oauth2_client_credentials' then 'OAUTH2_CLIENT_CREDENTIALS'
+                              when 'oci'                       then 'OCI'
+                            end;
+          if l_cred_type is null then
+            raise_application_error(gc_err_invalid_input, 'The demo app does not support auth type ' || l_ctx.auth_type_code
+                                                          || ' unless its Web Credential exists in this workspace.');
+          end if;
+      end;
     end if;
 
-    apex_zip.finish(p_zipped_blob => l_zip);
+    l_module_id  := new_id;
+    l_profile_id := new_id;
+    l_auth_id    := new_id;
+    l_menu_id    := new_id;
+    l_bar_id     := new_id;
+
+    -- ---------------------------------------------------------------------------
+    -- Environment and application
+    -- ---------------------------------------------------------------------------
+    add(l_lines, 'prompt --application/set_environment');
+    add(l_lines, 'set define off verify off feedback off');
+    add(l_lines, 'whenever sqlerror exit sql.sqlcode rollback');
+    add(l_lines, '--------------------------------------------------------------------------------');
+    add(l_lines, '--');
+    add(l_lines, '-- Oracle APEX export file, generated by ARW (APEX REST Workbench) for');
+    add(l_lines, '-- ' || replace(l_ctx.http_method || ' ' || l_ctx.url_path, chr(10)) || ' (' || l_ctx.endpoint_name || ').');
+    add(l_lines, '--');
+    add(l_lines, '-- Import it in App Builder (Import > Application), or run it with SQLcl');
+    add(l_lines, '-- connected as the workspace schema.');
+    add(l_lines, '--');
+    add(l_lines, '--------------------------------------------------------------------------------');
+    add(l_lines, 'begin');
+    add(l_lines, 'wwv_flow_imp.import_begin (');
+    add(l_lines, ' p_version_yyyy_mm_dd=>' || lit(l_api_date));
+    add(l_lines, ',p_release=>' || lit(l_version_no));
+    add(l_lines, ',p_default_workspace_id=>' || to_char(l_workspace_id, 'fm99999999999999999999'));
+    add(l_lines, ',p_default_application_id=>' || l_app_id);
+    add(l_lines, ',p_default_id_offset=>0');
+    add(l_lines, ',p_default_owner=>' || lit(l_owner));
+    add(l_lines, ');');
+    add(l_lines, 'end;');
+    add(l_lines, '/');
+    add(l_lines, ' ');
+    add(l_lines, 'prompt APPLICATION ' || l_app_id || ' - ' || l_title || ' - ARW demo');
+
+    open_block('application/delete_application');
+    add(l_lines, 'wwv_flow_imp.remove_flow(wwv_flow.g_flow_id);');
+    close_block;
+
+    open_block('application/create_application');
+    add(l_lines, 'wwv_imp_workspace.create_flow(');
+    add(l_lines, ' p_id=>wwv_flow.g_flow_id');
+    add(l_lines, ',p_owner=>nvl(wwv_flow_application_install.get_schema,' || lit(l_owner) || ')');
+    add(l_lines, ',p_name=>nvl(wwv_flow_application_install.get_application_name,' || lit(substr(l_title || ' - ARW demo', 1, 255)) || ')');
+    add(l_lines, ',p_alias=>nvl(wwv_flow_application_install.get_application_alias,' || lit(upper(l_rds_static_id) || '-DEMO') || ')');
+    add(l_lines, ',p_page_view_logging=>''YES''');
+    add(l_lines, ',p_page_protection_enabled_y_n=>''Y''');
+    add(l_lines, ',p_bookmark_checksum_function=>''SH512''');
+    add(l_lines, ',p_compatibility_mode=>' || lit(regexp_substr(l_version_no, '^\d+\.\d+')));
+    add(l_lines, ',p_flow_language=>''en''');
+    add(l_lines, ',p_flow_language_derived_from=>''FLOW_PRIMARY_LANGUAGE''');
+    add(l_lines, ',p_flow_image_prefix=>nvl(wwv_flow_application_install.get_image_prefix,'''')');
+    add(l_lines, ',p_authentication_id=>' || imp_id(l_auth_id));
+    add(l_lines, ',p_application_tab_set=>0');
+    add(l_lines, ',p_logo_type=>''T''');
+    add(l_lines, ',p_logo_text=>' || lit(l_title));
+    add(l_lines, ',p_proxy_server=>nvl(wwv_flow_application_install.get_proxy,'''')');
+    add(l_lines, ',p_no_proxy_domains=>nvl(wwv_flow_application_install.get_no_proxy_domains,'''')');
+    add(l_lines, ',p_flow_version=>''Release 1.0''');
+    add(l_lines, ',p_flow_status=>''AVAILABLE_W_EDIT_LINK''');
+    add(l_lines, ',p_browser_cache=>''N''');
+    add(l_lines, ',p_browser_frame=>''D''');
+    add(l_lines, ',p_authorize_batch_job=>''N''');
+    add(l_lines, ',p_rejoin_existing_sessions=>''N''');
+    add(l_lines, ',p_csv_encoding=>''Y''');
+    add(l_lines, ',p_file_prefix=>nvl(wwv_flow_application_install.get_static_app_file_prefix,'''')');
+    add(l_lines, ',p_print_server_type=>''NATIVE''');
+    add(l_lines, ',p_file_storage=>''DB''');
+    add(l_lines, ',p_is_pwa=>''N''');
+    add(l_lines, ',p_theme_id=>42');
+    add(l_lines, ',p_home_url=>''f?p=&APP_ID.:1:&SESSION.::&DEBUG.''');
+    add(l_lines, ',p_theme_style_by_user_pref=>false');
+    add(l_lines, ',p_global_page_id=>0');
+    add(l_lines, ',p_navigation_list_id=>' || imp_id(l_menu_id));
+    add(l_lines, ',p_navigation_list_position=>''SIDE''');
+    add(l_lines, ',p_navigation_list_template_id=>2469215554099805162');
+    add(l_lines, ',p_nav_list_template_options=>''#DEFAULT#''');
+    add(l_lines, ',p_nav_bar_type=>''LIST''');
+    add(l_lines, ',p_nav_bar_list_id=>' || imp_id(l_bar_id));
+    add(l_lines, ',p_nav_bar_list_template_id=>2849019392706229583');
+    add(l_lines, ',p_nav_bar_template_options=>''#DEFAULT#''');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Web Credential and Remote Server (workspace components)
+    -- ---------------------------------------------------------------------------
+    if l_has_credential then
+      open_block('workspace/credentials/' || lower(arw_render_utils.to_identifier(l_ctx.credential_static_id)));
+      add(l_lines, 'wwv_imp_workspace.create_credential(');
+      add(l_lines, ' p_id=>' || to_char(l_cred_id, 'fm99999999999999999999'));
+      add(l_lines, ',p_name=>' || lit(l_cred_name));
+      add(l_lines, ',p_static_id=>' || lit(l_ctx.credential_static_id));
+      add(l_lines, ',p_authentication_type=>' || lit(l_cred_type));
+      add(l_lines, ',p_prompt_on_install=>false');
+      if l_cred_comment is not null then
+        add(l_lines, ',p_credential_comment=>' || lit(l_cred_comment));
+      end if;
+      add(l_lines, ');');
+      close_block;
+    end if;
+
+    open_block('workspace/remote_servers/' || replace(l_server_static_id, '-', '_'));
+    add(l_lines, 'wwv_imp_workspace.create_remote_server(');
+    add(l_lines, ' p_id=>' || to_char(l_server_id, 'fm99999999999999999999'));
+    add(l_lines, ',p_name=>' || lit(l_server_name));
+    add(l_lines, ',p_static_id=>' || lit(l_server_static_id));
+    add(l_lines, ',p_base_url=>nvl(wwv_flow_application_install.get_remote_server_base_url(' || lit(l_server_static_id) || '),' || lit(l_server_url) || ')');
+    add(l_lines, ',p_https_host=>nvl(wwv_flow_application_install.get_remote_server_https_host(' || lit(l_server_static_id) || '),'''')');
+    add(l_lines, ',p_server_type=>''WEB_SERVICE''');
+    add(l_lines, ',p_ords_timezone=>nvl(wwv_flow_application_install.get_remote_server_ords_tz(' || lit(l_server_static_id) || '),'''')');
+    add(l_lines, ',p_prompt_on_install=>false');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- REST Data Source: module, parameters, data profile, operation
+    -- ---------------------------------------------------------------------------
+    rds_url_parts(
+        p_ctx                                   => l_ctx
+      , o_prefix                                => l_prefix
+      , o_pattern                               => l_pattern
+    );
+
+    open_block('application/shared_components/web_sources/' || replace(l_rds_static_id, '-', '_'));
+    add(l_lines, 'wwv_flow_imp_shared.create_web_source_module(');
+    add(l_lines, ' p_id=>' || imp_id(l_module_id));
+    add(l_lines, ',p_name=>' || lit(l_ctx.endpoint_name));
+    add(l_lines, ',p_static_id=>' || lit(l_rds_static_id));
+    add(l_lines, ',p_web_source_type=>''NATIVE_HTTP''');
+    add(l_lines, ',p_data_profile_id=>' || imp_id(l_profile_id));
+    add(l_lines, ',p_remote_server_id=>' || to_char(l_server_id, 'fm99999999999999999999'));
+    add(l_lines, ',p_url_path_prefix=>' || lit(l_prefix));
+    if l_has_credential then
+      add(l_lines, ',p_credential_id=>' || to_char(l_cred_id, 'fm99999999999999999999'));
+    end if;
+    add(l_lines, ',p_timeout=>' || nvl(l_ctx.timeout_secs, 30));
+    add(l_lines, ');');
+
+    for i in 1 .. l_ctx.params.count loop
+      continue when l_ctx.params(i).kind_code = 'form';
+
+      add(l_lines, 'wwv_flow_imp_shared.create_web_source_param(');
+      add(l_lines, ' p_id=>' || imp_id(new_id));
+      add(l_lines, ',p_web_src_module_id=>' || imp_id(l_module_id));
+      add(l_lines, ',p_name=>' || lit(l_ctx.params(i).param_name));
+      add(l_lines, ',p_static_id=>' || lit(unique_static_id(arw_render_utils.to_static_id(l_ctx.params(i).param_name))));
+      add(l_lines, ',p_param_type=>' || case l_ctx.params(i).kind_code when 'path' then '''URL_PATTERN''' else '''QUERY_STRING''' end);
+      add(l_lines, ',p_data_type=>' || case l_ctx.params(i).plsql_type
+                                         when 'number'  then '''NUMBER'''
+                                         when 'date'    then '''DATE'''
+                                         when 'boolean' then '''BOOLEAN'''
+                                         else '''VARCHAR2'''
+                                       end);
+      add(l_lines, ',p_is_required=>' || case when l_ctx.params(i).is_required_yn = 'Y' then 'true' else 'false' end);
+      if l_ctx.params(i).param_value is not null then
+        add(l_lines, ',p_default_value_type=>''STATIC''');
+        add(l_lines, ',p_value=>' || lit(l_ctx.params(i).param_value));
+      end if;
+      add(l_lines, ');');
+    end loop;
+
+    -- Sensitive headers belong in the Web Credential: left out, as in the .apx
+    for i in 1 .. l_ctx.headers.count loop
+      continue when l_ctx.headers(i).is_sensitive_yn = 'Y';
+
+      add(l_lines, 'wwv_flow_imp_shared.create_web_source_param(');
+      add(l_lines, ' p_id=>' || imp_id(new_id));
+      add(l_lines, ',p_web_src_module_id=>' || imp_id(l_module_id));
+      add(l_lines, ',p_name=>' || lit(l_ctx.headers(i).header_name));
+      add(l_lines, ',p_static_id=>' || lit(unique_static_id(arw_render_utils.to_static_id(l_ctx.headers(i).header_name))));
+      add(l_lines, ',p_param_type=>''HEADER''');
+      add(l_lines, ',p_data_type=>''VARCHAR2''');
+      add(l_lines, ',p_default_value_type=>''STATIC''');
+      add(l_lines, ',p_value=>' || lit(l_ctx.headers(i).header_value));
+      add(l_lines, ',p_is_static=>true');
+      add(l_lines, ');');
+    end loop;
+
+    add(l_lines, 'wwv_flow_imp_shared.create_data_profile(');
+    add(l_lines, ' p_id=>' || imp_id(l_profile_id));
+    add(l_lines, ',p_name=>' || lit(nvl(l_ctx.profile_name, upper(arw_render_utils.to_identifier(l_ctx.endpoint_name)))));
+    add(l_lines, ',p_format=>''JSON''');
+    if l_ctx.row_selector is not null then
+      add(l_lines, ',p_row_selector=>' || lit(l_ctx.row_selector));
+    end if;
+    add(l_lines, ',p_use_raw_json_selectors=>false');
+    add(l_lines, ',p_is_single_row=>false');
+    add(l_lines, ');');
+
+    l_static_ids := apex_t_varchar2();
+    for i in 1 .. l_ctx.profile_columns.count loop
+      continue when not is_report_column(l_ctx.profile_columns(i));
+
+      l_n := l_n + 1;
+      l_col_type := case
+                      when l_ctx.profile_columns(i).is_json_yn = 'Y' then 'CLOB'
+                      else case l_ctx.profile_columns(i).data_type_code
+                             when 'number'                   then 'NUMBER'
+                             when 'boolean'                  then 'BOOLEAN'
+                             when 'date'                     then 'DATE'
+                             when 'timestamp_with_time_zone' then 'TIMESTAMP WITH TIME ZONE'
+                             when 'clob'                     then 'CLOB'
+                             else 'VARCHAR2'
+                           end
+                    end;
+
+      add(l_lines, 'wwv_flow_imp_shared.create_data_profile_col(');
+      add(l_lines, ' p_id=>' || imp_id(new_id));
+      add(l_lines, ',p_data_profile_id=>' || imp_id(l_profile_id));
+      add(l_lines, ',p_name=>' || lit(upper(l_ctx.profile_columns(i).ident)));
+      add(l_lines, ',p_static_id=>' || lit(unique_static_id(arw_render_utils.to_static_id(l_ctx.profile_columns(i).ident))));
+      add(l_lines, ',p_sequence=>' || l_n);
+      if l_ctx.profile_columns(i).is_primary_key_yn = 'Y' then
+        add(l_lines, ',p_is_primary_key=>true');
+      end if;
+      add(l_lines, ',p_column_type=>''DATA''');
+      add(l_lines, ',p_data_type=>' || lit(l_col_type));
+      if l_col_type = 'VARCHAR2' then
+        add(l_lines, ',p_max_length=>' || least(greatest(nvl(l_ctx.profile_columns(i).max_observed_length, 4000), 1), 4000));
+      end if;
+      if l_ctx.profile_columns(i).format_mask is not null and l_col_type in ('DATE', 'TIMESTAMP WITH TIME ZONE') then
+        add(l_lines, ',p_format_mask=>' || lit(l_ctx.profile_columns(i).format_mask));
+      end if;
+      add(l_lines, ',p_selector=>' || lit(l_ctx.profile_columns(i).path_expression));
+      add(l_lines, ');');
+    end loop;
+
+    add(l_lines, 'wwv_flow_imp_shared.create_web_source_operation(');
+    add(l_lines, ' p_id=>' || imp_id(new_id));
+    add(l_lines, ',p_web_src_module_id=>' || imp_id(l_module_id));
+    add(l_lines, ',p_static_id=>''get''');
+    add(l_lines, ',p_operation=>''GET''');
+    add(l_lines, ',p_database_operation=>''FETCH_COLLECTION''');
+    add(l_lines, ',p_url_pattern=>' || lit(l_pattern));
+    add(l_lines, ',p_force_error_for_http_404=>false');
+    add(l_lines, ',p_allow_fetch_all_rows=>false');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Navigation: menu with one entry, empty navigation bar
+    -- ---------------------------------------------------------------------------
+    open_block('application/shared_components/navigation/lists/navigation_bar');
+    add(l_lines, 'wwv_flow_imp_shared.create_list(');
+    add(l_lines, ' p_id=>' || imp_id(l_bar_id));
+    add(l_lines, ',p_name=>''Navigation Bar''');
+    add(l_lines, ',p_static_id=>''navigation-bar''');
+    add(l_lines, ');');
+    close_block;
+
+    open_block('application/shared_components/navigation/lists/navigation_menu');
+    add(l_lines, 'wwv_flow_imp_shared.create_list(');
+    add(l_lines, ' p_id=>' || imp_id(l_menu_id));
+    add(l_lines, ',p_name=>''Navigation Menu''');
+    add(l_lines, ',p_static_id=>''navigation-menu''');
+    add(l_lines, ');');
+    add(l_lines, 'wwv_flow_imp_shared.create_list_item(');
+    add(l_lines, ' p_id=>' || imp_id(new_id));
+    add(l_lines, ',p_list_item_display_sequence=>10');
+    add(l_lines, ',p_list_item_link_text=>' || lit(l_title));
+    add(l_lines, ',p_static_id=>''home''');
+    add(l_lines, ',p_list_item_link_target=>''f?p=&APP_ID.:1:&SESSION.::&DEBUG.''');
+    add(l_lines, ',p_list_item_icon=>''fa-table''');
+    add(l_lines, ',p_list_item_current_type=>''TARGET_PAGE''');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Universal Theme 42 (subscribed to the instance master theme)
+    -- ---------------------------------------------------------------------------
+    open_block('application/shared_components/user_interface/themes');
+    add(l_lines, 'wwv_flow_imp_shared.create_theme(');
+    add(l_lines, ' p_id=>' || imp_id(new_id));
+    add(l_lines, ',p_theme_id=>42');
+    add(l_lines, ',p_static_id=>''universal-theme''');
+    add(l_lines, ',p_theme_name=>''Universal Theme''');
+    add(l_lines, ',p_theme_internal_name=>''UNIVERSAL_THEME''');
+    add(l_lines, ',p_version_identifier=>''26.1''');
+    add(l_lines, ',p_navigation_type=>''L''');
+    add(l_lines, ',p_nav_bar_type=>''LIST''');
+    add(l_lines, ',p_is_locked=>false');
+    add(l_lines, ',p_current_theme_style_id=>2243014446517417');
+    add(l_lines, ',p_default_page_template=>4073832297226169690');
+    add(l_lines, ',p_default_dialog_template=>2101883943284197310');
+    add(l_lines, ',p_error_template=>2102634289808461002');
+    add(l_lines, ',p_printer_friendly_template=>4073832297226169690');
+    add(l_lines, ',p_login_template=>2102634289808461002');
+    add(l_lines, ',p_default_button_template=>4073839297780169708');
+    add(l_lines, ',p_default_region_template=>4073835273271169698');
+    add(l_lines, ',p_default_chart_template=>4073835273271169698');
+    add(l_lines, ',p_default_form_template=>4073835273271169698');
+    add(l_lines, ',p_default_reportr_template=>4073835273271169698');
+    add(l_lines, ',p_default_wizard_template=>4073835273271169698');
+    add(l_lines, ',p_default_menur_template=>2532939663579242476');
+    add(l_lines, ',p_default_listr_template=>4073835273271169698');
+    add(l_lines, ',p_default_irr_template=>2102002977963900996');
+    add(l_lines, ',p_default_report_template=>2540130677583398057');
+    add(l_lines, ',p_default_label_template=>1610598304472262251');
+    add(l_lines, ',p_default_menu_template=>4073839682315169711');
+    add(l_lines, ',p_default_list_template=>4073837480889169704');
+    add(l_lines, ',p_default_top_nav_list_temp=>2528231041045349458');
+    add(l_lines, ',p_default_side_nav_list_temp=>2469215554099805162');
+    add(l_lines, ',p_default_nav_list_position=>''SIDE''');
+    add(l_lines, ',p_default_dialogbtnr_template=>2127905476394690047');
+    add(l_lines, ',p_default_dialogr_template=>4502917002193490937');
+    add(l_lines, ',p_default_option_label=>1610598304472262251');
+    add(l_lines, ',p_default_required_label=>1610598484065263269');
+    add(l_lines, ',p_default_navbar_list_template=>2849019392706229583');
+    add(l_lines, ',p_file_prefix=>nvl(wwv_flow_application_install.get_static_theme_file_prefix(42),''#APEX_FILES#themes/theme_42/26.1/'')');
+    add(l_lines, ',p_icon_library=>''FONTAPEX''');
+    add(l_lines, ',p_javascript_file_urls=>wwv_flow_string.join(wwv_flow_t_varchar2(');
+    add(l_lines, '''#APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.stickyWidget#MIN#.js?v=#APEX_VERSION#'',');
+    add(l_lines, '''#THEME_FILES#js/theme42#MIN#.js?v=#APEX_VERSION#''))');
+    add(l_lines, ',p_css_file_urls=>''#THEME_FILES#css/Core#MIN#.css?v=#APEX_VERSION#''');
+    add(l_lines, ',p_reference_id=>wwv_imp_util.get_subscription_id(4073840274158169736,2000,''universal-theme'',8842.261)');
+    add(l_lines, ',p_version_scn_master=>''SH256:WOPVC8vP1TPWUxczh2dJ4mCZcNGSTzA1cn8DjR2oQjY''');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Authentication: none, page 1 is public
+    -- ---------------------------------------------------------------------------
+    open_block('application/shared_components/security/authentications/no_authentication');
+    add(l_lines, 'wwv_flow_imp_shared.create_authentication(');
+    add(l_lines, ' p_id=>' || imp_id(l_auth_id));
+    add(l_lines, ',p_name=>''No Authentication''');
+    add(l_lines, ',p_static_id=>''no-authentication''');
+    add(l_lines, ',p_scheme_type=>''NATIVE_DAD''');
+    add(l_lines, ',p_use_secure_cookie_yn=>''N''');
+    add(l_lines, ',p_ras_mode=>0');
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Pages: global page and page 1 with the Interactive Report
+    -- ---------------------------------------------------------------------------
+    open_block('application/pages/page_00000');
+    add(l_lines, 'wwv_flow_imp_page.create_page(');
+    add(l_lines, ' p_id=>0');
+    add(l_lines, ',p_name=>''Global Page''');
+    add(l_lines, ',p_autocomplete_on_off=>''OFF''');
+    add(l_lines, ',p_protection_level=>''D''');
+    add(l_lines, ');');
+    close_block;
+
+    open_block('application/pages/page_00001');
+    add(l_lines, 'wwv_flow_imp_page.create_page(');
+    add(l_lines, ' p_id=>1');
+    add(l_lines, ',p_name=>' || lit(l_title));
+    add(l_lines, ',p_alias=>''HOME''');
+    add(l_lines, ',p_step_title=>' || lit(l_title));
+    add(l_lines, ',p_first_item=>''AUTO_FIRST_ITEM''');
+    add(l_lines, ',p_autocomplete_on_off=>''ON''');
+    add(l_lines, ',p_step_template=>4073832297226169690');
+    add(l_lines, ',p_page_template_options=>''#DEFAULT#''');
+    add(l_lines, ',p_page_is_public_y_n=>''Y''');
+    add(l_lines, ');');
+    add(l_lines, 'wwv_flow_imp_page.create_page_plug(');
+    add(l_lines, ' p_id=>' || imp_id(new_id));
+    add(l_lines, ',p_plug_name=>' || lit(l_title));
+    add(l_lines, ',p_static_id=>' || lit(l_rds_static_id || '-report'));
+    add(l_lines, ',p_region_template_options=>''#DEFAULT#''');
+    add(l_lines, ',p_plug_template=>2102002977963900996');
+    add(l_lines, ',p_plug_display_sequence=>10');
+    add(l_lines, ',p_plug_item_display_point=>''ABOVE''');
+    add(l_lines, ',p_location=>''WEB_SOURCE''');
+    add(l_lines, ',p_web_src_module_id=>' || imp_id(l_module_id));
+    add(l_lines, ',p_plug_source_type=>''NATIVE_IR''');
+    add(l_lines, ');');
+    l_worksheet_id := new_id;
+    add(l_lines, 'wwv_flow_imp_page.create_worksheet(');
+    add(l_lines, ' p_id=>' || imp_id(l_worksheet_id));
+    add(l_lines, ',p_report_list_mode=>''TABS''');
+    add(l_lines, ',p_lazy_loading=>false');
+    add(l_lines, ',p_show_detail_link=>''N''');
+    add(l_lines, ',p_show_notify=>''Y''');
+    add(l_lines, ',p_download_formats=>''CSV:HTML:XLSX:PDF''');
+    add(l_lines, ',p_enable_mail_download=>''Y''');
+    add(l_lines, ',p_internal_uid=>' || to_char(l_worksheet_id, 'fm99999999999999999999'));
+    add(l_lines, ');');
+
+    l_n := 0;
+    for i in 1 .. l_ctx.profile_columns.count loop
+      continue when not is_report_column(l_ctx.profile_columns(i));
+
+      l_n := l_n + 1;
+      if l_n > 1 then
+        l_report_columns := l_report_columns || ':';
+      end if;
+      l_report_columns := l_report_columns || upper(l_ctx.profile_columns(i).ident);
+
+      add(l_lines, 'wwv_flow_imp_page.create_worksheet_column(');
+      add(l_lines, ' p_id=>' || imp_id(new_id));
+      add(l_lines, ',p_db_column_name=>' || lit(upper(l_ctx.profile_columns(i).ident)));
+      add(l_lines, ',p_display_order=>' || l_n * 10);
+      add(l_lines, ',p_column_identifier=>' || lit(column_identifier(l_n)));
+      add(l_lines, ',p_column_label=>' || lit(initcap(replace(l_ctx.profile_columns(i).ident, '_', ' '))));
+      add(l_lines, ',p_column_type=>' || case
+                                           when l_ctx.profile_columns(i).is_json_yn = 'Y' then '''CLOB'''
+                                           else case l_ctx.profile_columns(i).data_type_code
+                                                  when 'number'                   then '''NUMBER'''
+                                                  when 'date'                     then '''DATE'''
+                                                  when 'timestamp_with_time_zone' then '''TIMESTAMP_TZ'''
+                                                  when 'clob'                     then '''CLOB'''
+                                                  else '''STRING'''
+                                                end
+                                         end);
+      add(l_lines, ',p_heading_alignment=>''LEFT''');
+      add(l_lines, ',p_use_as_row_header=>''N''');
+      add(l_lines, ',p_available_clientside=>''N''');
+      add(l_lines, ');');
+    end loop;
+
+    add(l_lines, 'wwv_flow_imp_page.create_worksheet_rpt(');
+    add(l_lines, ' p_id=>' || imp_id(new_id));
+    add(l_lines, ',p_application_user=>''APXWS_DEFAULT''');
+    add(l_lines, ',p_report_seq=>10');
+    add(l_lines, ',p_report_alias=>''primary''');
+    add(l_lines, ',p_status=>''PUBLIC''');
+    add(l_lines, ',p_is_default=>''Y''');
+    add(l_lines, ',p_report_columns=>' || lit(l_report_columns));
+    add(l_lines, ');');
+    close_block;
+
+    -- ---------------------------------------------------------------------------
+    -- Supporting objects: auth values, only for simple auth (Auth tab) -- a
+    -- linked APEX Web Credential already holds its own secret
+    -- ---------------------------------------------------------------------------
+    if p_include_secrets_yn = 'Y' and l_has_credential and l_ctx.credential_id is null then
+      l_secret_lines := demo_secret_lines(l_ctx);
+      l_install_id   := new_id;
+
+      open_block('application/deployment/definition');
+      add(l_lines, 'wwv_flow_imp.g_varchar2_table := wwv_flow_imp.empty_varchar2_table;');
+      add(l_lines, 'wwv_flow_imp_shared.create_install(');
+      add(l_lines, ' p_id=>' || imp_id(l_install_id));
+      add(l_lines, ',p_include_in_export_yn=>''I''');
+      add(l_lines, ',p_deinstall_script_clob=>wwv_flow_imp.varchar2_to_clob(wwv_flow_imp.g_varchar2_table)');
+      add(l_lines, ');');
+      close_block;
+
+      open_block('application/deployment/install/install_set_credential_secret');
+      add(l_lines, 'wwv_flow_imp.g_varchar2_table := wwv_flow_imp.empty_varchar2_table;');
+      for i in 1 .. l_secret_lines.count loop
+        add(l_lines, 'wwv_flow_imp.g_varchar2_table(' || i || ') := ' || lit(l_secret_lines(i))
+                     || case when i < l_secret_lines.count then '||wwv_flow.LF' end || ';');
+      end loop;
+      add(l_lines, 'wwv_flow_imp_shared.create_install_script(');
+      add(l_lines, ' p_id=>' || imp_id(new_id));
+      add(l_lines, ',p_install_id=>' || imp_id(l_install_id));
+      add(l_lines, ',p_name=>''set-credential-secret''');
+      add(l_lines, ',p_sequence=>10');
+      add(l_lines, ',p_script_type=>''INSTALL''');
+      add(l_lines, ',p_script_clob=>wwv_flow_imp.varchar2_to_clob(wwv_flow_imp.g_varchar2_table)');
+      add(l_lines, ');');
+      close_block;
+    else
+      null_block('application/deployment/definition');
+    end if;
+
+    open_block('application/end_environment');
+    add(l_lines, 'wwv_flow_imp.import_end(p_auto_install_sup_obj => nvl(wwv_flow_application_install.get_auto_install_sup_obj, false)');
+    add(l_lines, ');');
+    add(l_lines, 'commit;');
+    close_block;
+    add(l_lines, 'set verify on feedback on define on');
+    add(l_lines, 'prompt  ...done');
 
     logger.log('END', l_scope, null, l_params);
 
-    return l_zip;
+    return join_lines(l_lines) || gc_lf;
   exception
     when others then
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
-  end build_demo_app_zip;
+  end build_demo_app_sql;
 
 
 
@@ -3668,7 +4037,7 @@ as
   -- ===========================================================================
   /**
    * Download file name for the demo app of an endpoint
-   * (<endpoint-name>-demo.zip, kebab-case).
+   * (<endpoint-name>-demo.sql, kebab-case).
    *
    * @example
    * set serveroutput on
@@ -3693,7 +4062,7 @@ as
     l_scope  logger_logs.scope%type := gc_scope_prefix || 'demo_app_file_name';
     l_params logger.tab_param;
   begin
-    return regexp_replace(bundle_file_name(p_endpoint_id => p_endpoint_id), '\.apx$', '-demo.zip');
+    return regexp_replace(bundle_file_name(p_endpoint_id => p_endpoint_id), '\.apx$', '-demo.sql');
   exception
     when others then
       logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
