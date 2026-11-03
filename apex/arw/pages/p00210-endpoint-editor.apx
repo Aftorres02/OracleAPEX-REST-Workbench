@@ -2335,6 +2335,9 @@ page 210 (
             action: redirectThisApp
             target: {
                 page: 210
+                items: {
+                    P210_ENDPOINT_ID: &P210_ENDPOINT_ID.
+                }
                 request: DOWNLOAD
             }
             warnOnUnsavedChanges: doNotCheck
