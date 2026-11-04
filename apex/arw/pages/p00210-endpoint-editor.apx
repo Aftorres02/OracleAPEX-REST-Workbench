@@ -289,6 +289,9 @@ page 210 (
         appearance {
             template: @/buttons-container
             templateOptions: #DEFAULT#
+            cssClasses: [
+                arw-request-region
+            ]
         }
     )
 
@@ -1661,11 +1664,16 @@ page 210 (
             alignment: left
             startNewRow: false
             newColumn: true
-            columnSpan: 8
+            columnCssClasses: [
+                arw-col-grow
+            ]
         }
         appearance {
             template: @/required-floating
-            templateOptions: #DEFAULT#
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--stretchInputs
+            ]
         }
         advanced {
             cssClasses: [
