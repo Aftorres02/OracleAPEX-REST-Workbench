@@ -2359,34 +2359,6 @@ page 210 (
         }
     )
 
-    button DOWNLOAD (
-        buttonName: DOWNLOAD
-        advanced {
-            htmlDomId: DOWNLOAD
-        }
-        label: Download REST Data Source (.apx)
-        layout {
-            sequence: 10
-            region: @codeFooterSR
-            slot: NEXT
-        }
-        appearance {
-            buttonTemplate: @/text
-            templateOptions: #DEFAULT#
-        }
-        behavior {
-            action: redirectThisApp
-            target: {
-                page: 210
-                items: {
-                    P210_ENDPOINT_ID: &P210_ENDPOINT_ID.
-                }
-                request: DOWNLOAD
-            }
-            warnOnUnsavedChanges: doNotCheck
-        }
-    )
-
     button DOWNLOAD_APP (
         buttonName: DOWNLOAD_APP
         advanced {
@@ -2764,55 +2736,6 @@ page 210 (
     // =========================================================================
     // Processes
     // =========================================================================
-
-    process download-bundle (
-        name: Download REST Data Source
-        type: executeCode
-        source {
-            plsqlCode:
-                ```plsql
-                declare
-                  l_bundle                                  clob;
-                  l_blob                                    blob;
-                  l_file_name                               varchar2(400 char);
-                begin
-                  l_bundle := arw_codegen_api.build_apx_bundle(
-                                  p_endpoint_id                 => :P210_ENDPOINT_ID
-                                , p_artifact_type_codes         => 'apexlang_rds'
-                              );
-                  l_file_name := replace(
-                                     arw_codegen_api.bundle_file_name(p_endpoint_id => :P210_ENDPOINT_ID)
-                                   , '"'
-                                 );
-                  l_blob := apex_util.clob_to_blob(
-                                p_clob                        => coalesce(l_bundle, to_clob(' '))
-                              , p_charset                     => 'AL32UTF8'
-                            );
-
-                  sys.htp.init;
-                  sys.owa_util.mime_header('text/plain', false, 'UTF-8');
-                  sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_blob));
-                  sys.htp.p('Content-Disposition: attachment; filename="' || l_file_name || '"');
-                  sys.owa_util.http_header_close;
-                  sys.wpg_docload.download_file(l_blob);
-
-                  apex_application.stop_apex_engine;
-                end;
-                ```
-        }
-        execution {
-            sequence: 5
-            point: beforeHeader
-        }
-        serverSideCondition {
-            type: expression
-            language: plsql
-            plsqlExpression:
-                ```plsql
-                :REQUEST = 'DOWNLOAD' and :P210_ENDPOINT_ID is not null
-                ```
-        }
-    )
 
     process download-demo-app (
         name: Download Demo App

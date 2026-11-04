@@ -64,8 +64,9 @@ Restaurar la entrada `target-profiles` en `lists.apx` con la página 500.
 ### Volver a poner el selector en el editor
 
 Restaurar `P210_TARGET_PROFILE_ID` y pasarlo como `p_target_profile_id` a
-`arw_codegen_api.get_artifact` (región `codeDC`) y a `build_apx_bundle`
-(proceso `download-bundle`).
+`arw_codegen_api.get_artifact` (región `codeDC`). Si vuelve la descarga
+del `.apx` (botón `DOWNLOAD` y proceso `download-bundle`, quitados en nov
+2026), pasarlo también a `build_apx_bundle`.
 
 > **Nota:** el estado previo completo está en `main` antes del PR de
 > simplificación: `git show 66eec29:apex/arw/pages/p00210-endpoint-editor.apx`.

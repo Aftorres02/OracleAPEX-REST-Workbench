@@ -573,12 +573,12 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
   re-deriva con `arw_discover_api.auto_profile`. Se quitaron el card de
   profile y la página 215.
 
-- **Code:** en INSTALL solo queda `restDataSource`. Hay dos descargas:
+- **Code:** en INSTALL solo queda `restDataSource`. Hay una sola descarga:
 
-  - **REST Data Source (.apx):** es un fragmento, no una app. App Builder
-    26.1 solo importa apps completas, así que este archivo se copia en el
-    árbol APEXlang de una app existente (un archivo por cada marca
-    `// file:`) y se importa con SQLcl (`apex import -input <carpeta>`).
+  - **REST Data Source (.apx):** se quitó el botón de descarga. El archivo
+    era un fragmento, no una app, y App Builder no lo importa solo. Quien
+    trabaja con APEXlang en Git copia el texto del tab Code (marcas
+    `// file:`); `arw_codegen_api.build_apx_bundle` sigue en el paquete.
 
   - **Demo app (.zip), solo GET:** es una app APEXlang completa,
     `arw_codegen_api.build_demo_app_zip`. Trae una página pública (sin
