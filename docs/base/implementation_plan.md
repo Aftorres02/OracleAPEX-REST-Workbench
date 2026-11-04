@@ -580,21 +580,17 @@ Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
     árbol APEXlang de una app existente (un archivo por cada marca
     `// file:`) y se importa con SQLcl (`apex import -input <carpeta>`).
 
-  - **Demo app (.sql), solo GET:** es el export clásico de una app
-    completa, `arw_codegen_api.build_demo_app_sql`. Trae una página pública
-    (sin login) con un Interactive Report sobre el REST Data Source, más el
+  - **Demo app (.zip), solo GET:** es una app APEXlang completa,
+    `arw_codegen_api.build_demo_app_zip`. Trae una página pública (sin
+    login) con un Interactive Report sobre el REST Data Source, más el
     Remote Server y la Web Credential. Se importa en App Builder (Import >
-    Application) o se corre con SQLcl. Con el switch "Include auth values"
-    activo, un supporting object guarda el secreto del tab Auth en la Web
-    Credential al instalar (texto plano, solo para demo).
-
-    > **Nota:** al principio era un zip APEXlang, pero en este ADB el
-    > import APEXlang de App Builder falla con un HTTP 400 de ORDS, incluso
-    > con un export APEXlang hecho por el propio APEX. El export `.sql` no
-    > pasa por ORDS. Su formato sigue el export que genera APEX para la
-    > misma app (`apex export -exptype SQL`, APEX 26.1). Si el workspace
-    > ya tiene el Remote Server o la Web Credential con el mismo static
-    > ID, se reutilizan.
+    Application, requiere ORDS 26.1.1+) o con SQLcl. Trae
+    `deployments/default.json` con el ID sugerido 100000 + ID del endpoint:
+    sin ese archivo, App Builder responde HTTP 400 de ORDS al dar *Next*.
+    Quien importa puede cambiar el ID (o usar `-id` en SQLcl). Con el
+    switch "Include auth values" activo, un supporting object guarda el
+    secreto del tab Auth en la Web Credential al instalar (texto plano,
+    solo para demo).
 
 - **Home:** fila "Get started" con 6 accesos directos.
 
