@@ -1080,13 +1080,18 @@ page 210 (
             plsqlFunctionBody:
                 ```plsql
                 declare
-                  lc_max_chars                              constant pls_integer := 500000;
+                  -- A larger body shows only its first part plus a download link for
+                  -- the whole response: keeps the page light and under the size
+                  -- arw-code.js still colors (MAX_HIGHLIGHT_CHARS)
+                  lc_max_chars                              constant pls_integer := 100000;
                   l_body                                    clob;
+                  l_body_length                             pls_integer;
                   l_binary_yn                               arw_executions.response_is_binary_yn%type;
                   l_content_type                            varchar2(255 char);
                   l_file_url                                varchar2(4000 char);
                   l_download_url                            varchar2(4000 char);
                   l_preview                                 varchar2(32767 char);
+                  l_notice                                  varchar2(4000 char);
                   l_lang                                    varchar2(20 char);
                 begin
                   if :P210_EXECUTION_ID is null then
@@ -1110,6 +1115,13 @@ page 210 (
                     from arw_executions x
                    where x.execution_id = :P210_EXECUTION_ID;
 
+                  l_download_url := apex_page.get_url(
+                                        p_page          => 210
+                                      , p_request       => 'RESPONSE_DOWNLOAD'
+                                      , p_items         => 'P210_EXECUTION_ID'
+                                      , p_values        => :P210_EXECUTION_ID
+                                    );
+
                   if l_binary_yn = 'Y' then
                     -- A file (image, audio, video, PDF...): preview it inline, always offer the download
                     select l.content_type                                   as content_type
@@ -1120,12 +1132,6 @@ page 210 (
                     l_file_url     := apex_page.get_url(
                                           p_page        => 210
                                         , p_request     => 'RESPONSE_FILE'
-                                        , p_items       => 'P210_EXECUTION_ID'
-                                        , p_values      => :P210_EXECUTION_ID
-                                      );
-                    l_download_url := apex_page.get_url(
-                                          p_page        => 210
-                                        , p_request     => 'RESPONSE_DOWNLOAD'
                                         , p_items       => 'P210_EXECUTION_ID'
                                         , p_values      => :P210_EXECUTION_ID
                                       );
@@ -1149,17 +1155,38 @@ page 210 (
                   elsif l_body is null or dbms_lob.getlength(l_body) = 0 then
                     l_body := '[empty response body]';
                   elsif dbms_lob.getlength(l_body) > lc_max_chars then
-                    l_body := substr(l_body, 1, lc_max_chars)
-                           || chr(10) || '... [truncated -- showing the first ' || lc_max_chars || ' characters]';
+                    -- Cut in its own statement: substr(clob) joined with || to text in
+                    -- one expression resolves to varchar2 and fails past 32,767 chars
+                    l_body_length := dbms_lob.getlength(l_body);
+                    l_body        := substr(l_body, 1, lc_max_chars);
+                    l_notice      := '<div class="arw-banner arw-banner--warn">Large response: showing the first '
+                                  || to_char(lc_max_chars, 'FM999G999G999G990')
+                                  || ' of ' || to_char(l_body_length, 'FM999G999G999G990')
+                                  || ' characters. <a href="' || apex_escape.html_attribute(l_download_url) || '">'
+                                  || 'Download the full response</a></div>';
                   end if;
 
                   -- arw-code.js adds the Copy button and the syntax colors
-                  return '<pre class="arw-code arw-code--response" data-lang="' || l_lang || '">'
+                  return l_notice
+                      || '<pre class="arw-code arw-code--response" data-lang="' || l_lang || '">'
                       || apex_escape.html_clob(p_string => l_body)
                       || '</pre>';
                 exception
                   when no_data_found then
                     return null;
+                  when others then
+                    -- Never break the page over a response it can't display
+                    apex_debug.error(
+                        p_message                     => 'Response body render failed for execution %s: %s'
+                      , p0                            => :P210_EXECUTION_ID
+                      , p1                            => sqlerrm
+                    );
+                    return '<div class="arw-banner arw-banner--warn">The response could not be displayed.'
+                        || case
+                             when l_download_url is not null
+                             then ' <a href="' || apex_escape.html_attribute(l_download_url) || '">Download it instead</a>.'
+                           end
+                        || '</div>';
                 end;
                 ```
             pageItemsToSubmit: [
@@ -2797,11 +2824,20 @@ page 210 (
                 ```plsql
                 declare
                   l_blob                                    blob;
+                  l_clob                                    clob;
+                  l_binary_yn                               arw_executions.response_is_binary_yn%type;
                   l_content_type                            varchar2(255 char);
                   l_file_name                               varchar2(200 char);
                 begin
+                  -- A file is served as stored; a text body (JSON, XML...) as UTF-8 text,
+                  -- so a response too large to show in full can still be downloaded
                   select x.response_body_blob                               as response_body_blob
-                       , coalesce(l.content_type, 'application/octet-stream') as content_type
+                       , x.response_body_clob                               as response_body_clob
+                       , x.response_is_binary_yn                            as response_is_binary_yn
+                       , coalesce(
+                             l.content_type
+                           , case when x.response_is_binary_yn = 'Y' then 'application/octet-stream' else 'text/plain' end
+                         )                                                  as content_type
                        , 'response-' || x.execution_id
                          || case
                               when l.content_type = 'image/png'                 then '.png'
@@ -2813,18 +2849,35 @@ page 210 (
                               when l.content_type in ('audio/ogg', 'application/ogg') then '.ogg'
                               when l.content_type = 'video/mp4'                 then '.mp4'
                               when l.content_type = 'application/pdf'           then '.pdf'
-                              else '.bin'
+                              when x.response_is_binary_yn = 'Y'                then '.bin'
+                              when l.content_type like '%json%'                 then '.json'
+                              when l.content_type like '%xml%'                  then '.xml'
+                              when l.content_type like '%html%'                 then '.html'
+                              when l.content_type like '%csv%'                  then '.csv'
+                              else '.txt'
                             end                                             as file_name
                     into l_blob
+                       , l_clob
+                       , l_binary_yn
                        , l_content_type
                        , l_file_name
                     from arw_executions                      x
                     join arw_execution_log_vw                l on l.execution_id = x.execution_id
-                   where x.execution_id = :P210_EXECUTION_ID
-                     and x.response_is_binary_yn = 'Y';
+                   where x.execution_id = :P210_EXECUTION_ID;
+
+                  if l_binary_yn = 'N' then
+                    l_blob := apex_util.clob_to_blob(
+                                  p_clob                    => coalesce(l_clob, to_clob(' '))
+                                , p_charset                 => 'AL32UTF8'
+                              );
+                  end if;
 
                   sys.htp.init;
-                  sys.owa_util.mime_header(l_content_type, false);
+                  sys.owa_util.mime_header(
+                      ccontent_type                 => l_content_type
+                    , bclose_header                 => false
+                    , ccharset                      => case when l_binary_yn = 'N' then 'UTF-8' end
+                  );
                   sys.htp.p('Content-Length: ' || sys.dbms_lob.getlength(l_blob));
                   sys.htp.p('Content-Disposition: '
                             || case when :REQUEST = 'RESPONSE_DOWNLOAD' then 'attachment' else 'inline' end

@@ -23,3 +23,4 @@ Icon
 
 ### Release run logs (spooled by release/*.sql, local audit artifacts)
 release/*.log
+tmp
