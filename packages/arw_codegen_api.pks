@@ -15,6 +15,9 @@ as
 --            INSTALL apexlang_rds, apexlang_install_script,
 --                    apexlang_ai_tool, apexlang_automation
 --
+--          build_demo_app_zip packs the REST Data Source of a GET request
+--          into a ready-to-import APEXlang app (.zip) with a public report.
+--
 -- =============================================================================
 
 
@@ -43,6 +46,19 @@ as
 
 
   function bundle_file_name(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+  )
+  return varchar2;
+
+
+  function build_demo_app_zip(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_include_secrets_yn                      in varchar2 default 'N'
+  )
+  return blob;
+
+
+  function demo_app_file_name(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
   )
   return varchar2;

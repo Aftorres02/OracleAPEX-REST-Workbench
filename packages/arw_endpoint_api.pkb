@@ -5,6 +5,7 @@ as
   gc_scope_prefix constant varchar2(31) := lower($$plsql_unit) || '.';
 
   gc_err_not_found constant number := -20910;
+  gc_err_invalid   constant number := -20911;
 
   gc_base_url_token constant varchar2(20 char) := '{{base_url}}';
 
@@ -948,6 +949,108 @@ as
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
   end set_body;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- PROCEDURE: set_auth
+  -- ===========================================================================
+  /**
+   * Sets the simple auth of an endpoint (Auth tab of the editor): none,
+   * basic (user + password), bearer (token) or api_key (name + value, in a
+   * header or the query string). Full replace: every argument left out is
+   * cleared, and only the fields of the chosen type are kept. A type other
+   * than none also unlinks a legacy APEX Web Credential (credential_id), so
+   * one auth applies, never two. Values may hold {{var}} tokens, resolved
+   * from the environment at Send time. Values are never logged.
+   *
+   * @example
+   * begin
+   *   arw_endpoint_api.set_auth(
+   *       p_endpoint_id                           => 1
+   *     , p_auth_type_code                        => 'basic'
+   *     , p_auth_username                         => '{{user}}'
+   *     , p_auth_password                         => '{{password}}'
+   *   );
+   * end;
+   * /
+   *
+   * @issue   PHASE2-simplified (simple auth without APEX Web Credentials)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 03, 2026
+   *
+   * @param p_endpoint_id Endpoint whose auth is set
+   * @param p_auth_type_code none, basic, bearer or api_key
+   * @param p_auth_username Basic: user name
+   * @param p_auth_password Basic: password
+   * @param p_auth_token Bearer: token
+   * @param p_auth_key_name API key: header or query parameter name
+   * @param p_auth_key_value API key: value
+   * @param p_auth_key_location_code API key: header or query
+   */
+  procedure set_auth(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_auth_type_code                          in arw_endpoints.auth_type_code%type
+    , p_auth_username                           in arw_endpoints.auth_username%type default null
+    , p_auth_password                           in arw_endpoints.auth_password%type default null
+    , p_auth_token                              in arw_endpoints.auth_token%type default null
+    , p_auth_key_name                           in arw_endpoints.auth_key_name%type default null
+    , p_auth_key_value                          in arw_endpoints.auth_key_value%type default null
+    , p_auth_key_location_code                  in arw_endpoints.auth_key_location_code%type default 'header'
+  )
+  is
+    l_scope     logger_logs.scope%type := gc_scope_prefix || 'set_auth';
+    l_params    logger.tab_param;
+    l_auth_type arw_endpoints.auth_type_code%type := coalesce(p_auth_type_code, 'none');
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.append_param(l_params, 'p_auth_type_code', p_auth_type_code);
+    logger.append_param(l_params, 'p_auth_key_location_code', p_auth_key_location_code);
+    logger.log('START', l_scope, null, l_params);
+
+    if l_auth_type not in ('none', 'basic', 'bearer', 'api_key') then
+      raise_application_error(gc_err_invalid, 'Unknown auth type: ' || l_auth_type || ' (use none, basic, bearer or api_key).');
+    elsif coalesce(p_auth_key_location_code, 'header') not in ('header', 'query') then
+      raise_application_error(gc_err_invalid, 'An API key goes in the header or the query, not ' || p_auth_key_location_code || '.');
+    elsif l_auth_type = 'basic' and p_auth_username is null then
+      raise_application_error(gc_err_invalid, 'Basic auth needs a user name.');
+    elsif l_auth_type = 'bearer' and p_auth_token is null then
+      raise_application_error(gc_err_invalid, 'Bearer auth needs a token.');
+    elsif l_auth_type = 'api_key' and (p_auth_key_name is null or p_auth_key_value is null) then
+      raise_application_error(gc_err_invalid, 'API key auth needs a key name and a value.');
+    end if;
+
+    update arw_endpoints e
+       set e.auth_type_code         = l_auth_type
+         , e.credential_id          = case when l_auth_type = 'none' then e.credential_id end
+         , e.auth_username          = case when l_auth_type = 'basic'   then p_auth_username end
+         , e.auth_password          = case when l_auth_type = 'basic'   then p_auth_password end
+         , e.auth_token             = case when l_auth_type = 'bearer'  then p_auth_token end
+         , e.auth_key_name          = case when l_auth_type = 'api_key' then p_auth_key_name end
+         , e.auth_key_value         = case when l_auth_type = 'api_key' then p_auth_key_value end
+         , e.auth_key_location_code = case
+                                        when l_auth_type = 'api_key' then coalesce(p_auth_key_location_code, 'header')
+                                        else 'header'
+                                      end
+     where e.endpoint_id = p_endpoint_id
+       and e.active_yn = 'Y';
+
+    if sql%rowcount = 0 then
+      raise_application_error(gc_err_not_found, 'Endpoint not found: ' || p_endpoint_id);
+    end if;
+
+    logger.log('END', l_scope, null, l_params);
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end set_auth;
 
 
 

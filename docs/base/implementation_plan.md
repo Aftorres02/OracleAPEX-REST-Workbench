@@ -555,6 +555,50 @@ Alcance: `is json validate using schema`, runner de colección.
 Alcance: SigV4, JWT firmado, mTLS, `dbms_cloud`/Autonomous, `automation` +
 `jsonDualityView`, import de OpenAPI/Swagger.
 
+### Simplificación de la app (nov 2026)
+
+> **Estado:** rama `PHASE2-simplified-app`. Los 8 puntos y sus decisiones
+> están en `tmp/cambios.md`.
+
+- **Navegación:** Guide queda al final del menú. Target profiles queda
+  oculto (páginas 500/510 instaladas, sin enlace; ver
+  `docs/future/target-profiles.md`).
+
+- **Auth simple por request:** none, basic, bearer y API key, con
+  `{{variables}}`. Columnas nuevas en `arw_endpoints`
+  (`release/code/simple_auth_upgrade.sql`). Las Web Credentials de APEX
+  quedan ocultas (`docs/future/apex-credentials.md`).
+
+- **Data profile automático:** cada Send con respuesta JSON exitosa lo
+  re-deriva con `arw_discover_api.auto_profile`. Se quitaron el card de
+  profile y la página 215.
+
+- **Code:** en INSTALL solo queda `restDataSource`. Hay una sola descarga:
+
+  - **REST Data Source (.apx):** se quitó el botón de descarga. El archivo
+    era un fragmento, no una app, y App Builder no lo importa solo. Quien
+    trabaja con APEXlang en Git copia el texto del tab Code (marcas
+    `// file:`); `arw_codegen_api.build_apx_bundle` sigue en el paquete.
+
+  - **Demo app (.zip), solo GET:** es una app APEXlang completa,
+    `arw_codegen_api.build_demo_app_zip`. Trae una página pública (sin
+    login) con un Interactive Report sobre el REST Data Source, más el
+    Remote Server y la Web Credential. Se importa en App Builder (Import >
+    Application, requiere ORDS 26.1.1+) o con SQLcl. Trae
+    `deployments/default.json` con el ID sugerido 100000 + ID del endpoint:
+    sin ese archivo, App Builder responde HTTP 400 de ORDS al dar *Next*.
+    Quien importa puede cambiar el ID (o usar `-id` en SQLcl). Con el
+    switch "Include auth values" activo, un supporting object guarda el
+    secreto del tab Auth en la Web Credential al instalar (texto plano,
+    solo para demo).
+
+- **Home:** fila "Get started" con 6 accesos directos.
+
+- **Demo:** Sandbox (httpbin.org, dev y prod con distintas variables) y
+  DummyJSON (login real con token): `data/arw_seed_phase2_demo.sql`. ACL
+  agregada para `httpbin.org` y `httpbingo.org`; httpbingo responde 402
+  desde el ADB, así que no se usa.
+
 ---
 
 ## 6. Pendientes y decisiones abiertas

@@ -46,6 +46,12 @@ as
   return arw_data_profiles.data_profile_id%type;
 
 
+  function auto_profile(
+      p_execution_id                            in arw_executions.execution_id%type
+  )
+  return arw_data_profiles.data_profile_id%type;
+
+
   function current_profile_id(
       p_endpoint_id                             in arw_endpoints.endpoint_id%type
   )

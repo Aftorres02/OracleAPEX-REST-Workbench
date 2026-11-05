@@ -3,5 +3,6 @@
 -- ex: @../data/data_my_table.sql
 @../data/arw_seed_phase0_endpoint.sql
 @../data/arw_seed_demo.sql
+@../data/arw_seed_phase2_demo.sql
 @../data/arw_code_templates.sql
 @../data/arw_seed_guide.sql

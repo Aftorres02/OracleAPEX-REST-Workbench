@@ -72,6 +72,7 @@ as
     , credential_name                           arw_credentials.name%type
     , auth_type_code                            arw_credentials.auth_type_code%type
     , credential_static_id                      arw_credentials.apex_credential_static_id%type
+    , api_key_name                              arw_endpoints.auth_key_name%type
     , base_url                                  varchar2(1000 char)
     , content_type                              arw_request_bodies.content_type%type
     , body_template                             clob
@@ -372,6 +373,8 @@ as
     l_params         logger.tab_param;
     l_ctx            t_ctx;
     l_collection_id  arw_endpoints.collection_id%type;
+    l_simple_auth    arw_endpoints.auth_type_code%type;
+    l_key_in         arw_endpoints.auth_key_location_code%type;
     l_environment_id arw_environments.environment_id%type;
     l_uses_secret    boolean;
     l_idx            pls_integer := 0;
@@ -393,6 +396,9 @@ as
            , e.engine_code                                 as engine_code
            , e.credential_id                               as credential_id
            , e.collection_id                               as collection_id
+           , e.auth_type_code                              as auth_type_code
+           , e.auth_key_name                               as auth_key_name
+           , e.auth_key_location_code                      as auth_key_location_code
         into l_ctx.endpoint_id
            , l_ctx.endpoint_name
            , l_ctx.collection_name
@@ -403,6 +409,9 @@ as
            , l_ctx.engine_code
            , l_ctx.credential_id
            , l_collection_id
+           , l_simple_auth
+           , l_ctx.api_key_name
+           , l_key_in
         from arw_endpoints   e
         join arw_collections c on c.collection_id = e.collection_id
        where e.endpoint_id = p_endpoint_id
@@ -426,6 +435,24 @@ as
         when no_data_found then
           l_ctx.credential_id := null;
       end;
+    end if;
+
+    -- ===========================================================================
+    -- Simple auth (Auth tab): generated code never carries the secret, so it
+    -- is rendered as a Web Credential the developer creates in APEX, named
+    -- after the collection and the auth type (e.g. JSONPLACEHOLDER_BEARER).
+    -- ===========================================================================
+    if l_ctx.credential_id is null and l_simple_auth != 'none' then
+      l_ctx.auth_type_code       := case
+                                      when l_simple_auth = 'api_key' and l_key_in = 'query' then 'api_key_query'
+                                      when l_simple_auth = 'api_key'                        then 'api_key_header'
+                                      else l_simple_auth
+                                    end;
+      l_ctx.credential_static_id := upper(arw_render_utils.to_identifier(l_ctx.collection_name, 40))
+                                    || '_' || upper(l_simple_auth);
+      l_ctx.credential_name      := substr(l_ctx.collection_name, 1, 180) || ' (' || l_simple_auth || ')';
+    else
+      l_ctx.api_key_name := null;
     end if;
 
     -- ===========================================================================
@@ -2099,7 +2126,10 @@ as
     arw_render_utils.set_token(io_tokens, 'cred_id', apx_name(p_ctx.credential_static_id));
     arw_render_utils.set_token(io_tokens, 'cred_file', arw_render_utils.to_static_id(p_ctx.credential_static_id));
     arw_render_utils.set_token(io_tokens, 'cred_name', arw_render_utils.apx_text(nvl(p_ctx.credential_name, p_ctx.credential_static_id)));
-    arw_render_utils.set_token(io_tokens, 'api_key_name', case when p_ctx.auth_type_code = 'api_key_query' then 'api_key' else 'X-API-Key' end);
+    arw_render_utils.set_token(io_tokens, 'api_key_name', coalesce(
+                                                            p_ctx.api_key_name
+                                                          , case when p_ctx.auth_type_code = 'api_key_query' then 'api_key' else 'X-API-Key' end
+                                                          ));
     arw_render_utils.set_flag(io_tokens, 'rds_has_credential', has_credential(p_ctx));
 
     arw_render_utils.set_token(io_tokens, 'rds_id', arw_render_utils.to_static_id(p_ctx.endpoint_name));
@@ -3065,6 +3095,624 @@ as
       logger.log_error('Unhandled Exception', l_scope, null, l_params);
       raise;
   end bundle_file_name;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- PROCEDURE: add_zip_text (private)
+  -- ===========================================================================
+  /**
+   * Adds a UTF-8 text file to a zip under construction.
+   *
+   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param io_zip Zip being built with apex_zip
+   * @param p_path File path inside the zip
+   * @param p_text File content
+   */
+  procedure add_zip_text(
+      io_zip                                    in out nocopy blob
+    , p_path                                    in varchar2
+    , p_text                                    in clob
+  )
+  is
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'add_zip_text';
+    l_params logger.tab_param;
+  begin
+    apex_zip.add_file(
+        p_zipped_blob                           => io_zip
+      , p_file_name                             => p_path
+      , p_content                               => apex_util.clob_to_blob(
+                                                       p_clob    => p_text
+                                                     , p_charset => 'AL32UTF8'
+                                                   )
+    );
+  exception
+    when others then
+      logger.append_param(l_params, 'p_path', p_path);
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end add_zip_text;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: demo_page_text (private)
+  -- ===========================================================================
+  /**
+   * Page 1 of the demo app: a public page with an Interactive Report on the
+   * REST Data Source, one column per top-level data profile column.
+   *
+   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param p_ctx Generation context (must have a data profile)
+   * @return clob Content of pages/p00001-home.apx
+   */
+  function demo_page_text(
+      p_ctx                                     in t_ctx
+  )
+  return clob
+  is
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'demo_page_text';
+    l_params logger.tab_param;
+    l_lines  apex_t_varchar2 := apex_t_varchar2();
+    l_title  varchar2(400 char) := arw_render_utils.apx_text(p_ctx.endpoint_name);
+    l_seq    pls_integer := 0;
+  begin
+    add(l_lines, 'page 1 (');
+    add(l_lines, '    name: ' || l_title);
+    add(l_lines, '    alias: HOME');
+    add(l_lines, '    title: ' || l_title);
+    add(l_lines, '    appearance {');
+    add(l_lines, '        pageTemplate: @/standard');
+    add(l_lines, '        templateOptions: #DEFAULT#');
+    add(l_lines, '    }');
+    add(l_lines, '    security {');
+    add(l_lines, '        authentication: public');
+    add(l_lines, '    }');
+    add(l_lines, '');
+    add(l_lines, '    region ' || arw_render_utils.to_static_id(p_ctx.endpoint_name) || '-report (');
+    add(l_lines, '        name: ' || l_title);
+    add(l_lines, '        type: interactiveReport');
+    add(l_lines, '        source {');
+    add(l_lines, '            location: restSource');
+    add(l_lines, '            restSource: @' || arw_render_utils.to_static_id(p_ctx.endpoint_name));
+    add(l_lines, '        }');
+    add(l_lines, '        layout {');
+    add(l_lines, '            sequence: 10');
+    add(l_lines, '            slot: BODY');
+    add(l_lines, '        }');
+    add(l_lines, '        appearance {');
+    add(l_lines, '            template: @/interactive-report');
+    add(l_lines, '            templateOptions: #DEFAULT#');
+    add(l_lines, '        }');
+
+    -- Nested rows (array children) are not part of the report's row
+    for i in 1 .. p_ctx.profile_columns.count loop
+      continue when p_ctx.profile_columns(i).parent_column_id is not null
+                 or p_ctx.profile_columns(i).has_children_yn = 'Y';
+
+      l_seq := l_seq + 10;
+      add(l_lines, '');
+      add(l_lines, '        column ' || upper(p_ctx.profile_columns(i).ident) || ' (');
+      add(l_lines, '            type: plainText');
+      add(l_lines, '            heading {');
+      add(l_lines, '                heading: ' || arw_render_utils.apx_text(initcap(replace(p_ctx.profile_columns(i).ident, '_', ' '))));
+      add(l_lines, '            }');
+      add(l_lines, '            layout {');
+      add(l_lines, '                sequence: ' || l_seq);
+      add(l_lines, '            }');
+      add(l_lines, '            source {');
+      add(l_lines, '                dataType: ' || case
+                                                     when p_ctx.profile_columns(i).is_json_yn = 'Y' then 'CLOB'
+                                                     else case p_ctx.profile_columns(i).data_type_code
+                                                            when 'number'                   then 'NUMBER'
+                                                            when 'date'                     then 'DATE'
+                                                            when 'timestamp_with_time_zone' then 'TIMESTAMP_TZ'
+                                                            when 'clob'                     then 'CLOB'
+                                                            else 'STRING'
+                                                          end
+                                                   end);
+      add(l_lines, '            }');
+      add(l_lines, '        )');
+    end loop;
+
+    add(l_lines, '');
+    add(l_lines, '        savedReport primary (');
+    add(l_lines, '            visibility: primaryDefault');
+    add(l_lines, '            view {');
+    add(l_lines, '                rowsPerPage: 50');
+    add(l_lines, '            }');
+    add(l_lines, '        )');
+    add(l_lines, '    )');
+    add(l_lines, ')');
+
+    return join_lines(l_lines) || gc_lf;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end demo_page_text;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: demo_secret_script (private)
+  -- ===========================================================================
+  /**
+   * Supporting objects of the demo app: an install script that stores the
+   * request's auth values in the Web Credential, so the app works right
+   * after install. Values come from the Auth tab, with {{variables}}
+   * resolved against the same environment as the base URL (the
+   * collection's first active one).
+   *
+   * @example N/A -- private package-body unit; exercised through build_demo_app_zip.
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param p_ctx Generation context with a simple-auth credential
+   * @return clob Content of supporting-objects/supporting-objects.apx
+   */
+  function demo_secret_script(
+      p_ctx                                     in t_ctx
+  )
+  return clob
+  is
+    l_scope          logger_logs.scope%type := gc_scope_prefix || 'demo_secret_script';
+    l_params         logger.tab_param;
+    l_lines          apex_t_varchar2 := apex_t_varchar2();
+    l_username       arw_endpoints.auth_username%type;
+    l_password       arw_endpoints.auth_password%type;
+    l_token          arw_endpoints.auth_token%type;
+    l_key_value      arw_endpoints.auth_key_value%type;
+    l_environment_id arw_environments.environment_id%type;
+    l_name_arg       varchar2(30 char);
+    l_secret_arg     varchar2(30 char);
+    l_name           varchar2(4000 char);
+    l_secret         varchar2(4000 char);
+
+    function resolved(
+        p_text                                  in varchar2
+    )
+    return varchar2
+    is
+      l_text varchar2(4000 char) := p_text;
+    begin
+      for l_rec in (
+        select v.var_name                                  as var_name
+             , v.var_value                                 as var_value
+          from arw_env_variables v
+         where v.environment_id = l_environment_id
+           and v.active_yn = 'Y'
+      )
+      loop
+        l_text := replace(l_text, '{{' || l_rec.var_name || '}}', l_rec.var_value);
+      end loop;
+
+      if regexp_like(l_text, '\{\{[^}]+\}\}') then
+        raise_application_error(gc_err_invalid_input, 'The auth value ' || regexp_substr(l_text, '\{\{[^}]+\}\}')
+                                                      || ' is not defined in the environment.');
+      end if;
+
+      return l_text;
+    end resolved;
+  begin
+    logger.append_param(l_params, 'endpoint_id', p_ctx.endpoint_id);
+    logger.log('START', l_scope, null, l_params);
+
+    select e.auth_username                                 as auth_username
+         , e.auth_password                                 as auth_password
+         , e.auth_token                                    as auth_token
+         , e.auth_key_value                                as auth_key_value
+      into l_username
+         , l_password
+         , l_token
+         , l_key_value
+      from arw_endpoints e
+     where e.endpoint_id = p_ctx.endpoint_id;
+
+    begin
+      select env.environment_id                            as environment_id
+        into l_environment_id
+        from arw_environments env
+        join arw_endpoints    e on e.collection_id = env.collection_id
+       where e.endpoint_id = p_ctx.endpoint_id
+         and env.active_yn = 'Y'
+       order by env.environment_id
+       fetch first 1 row only;
+    exception
+      when no_data_found then
+        l_environment_id := null;
+    end;
+
+    case p_ctx.auth_type_code
+      when 'basic' then
+        l_name_arg   := 'p_username';
+        l_secret_arg := 'p_password';
+        l_name       := resolved(l_username);
+        l_secret     := resolved(l_password);
+      when 'bearer' then
+        l_name       := 'Authorization';
+        l_secret     := 'Bearer ' || resolved(l_token);
+      else
+        l_name       := resolved(p_ctx.api_key_name);
+        l_secret     := resolved(l_key_value);
+    end case;
+    l_name_arg   := nvl(l_name_arg, 'p_client_id');
+    l_secret_arg := nvl(l_secret_arg, 'p_client_secret');
+
+    add(l_lines, 'supportingObject (');
+    add(l_lines, '    advanced {');
+    add(l_lines, '        includeInAppExport: autoInstall');
+    add(l_lines, '    }');
+    add(l_lines, '');
+    add(l_lines, '    installScript set-credential-secret (');
+    add(l_lines, '        execution {');
+    add(l_lines, '            sequence: 10');
+    add(l_lines, '        }');
+    add(l_lines, '        script {');
+    add(l_lines, '            content:');
+    add(l_lines, '                ```');
+    add(l_lines, '                -- Demo only: the secret below was copied from ARW in plain text.');
+    add(l_lines, '                begin');
+    add(l_lines, '                  apex_credential.set_persistent_credentials(');
+    add(l_lines, '                      p_credential_static_id => ' || arw_render_utils.quote_literal(p_ctx.credential_static_id));
+    add(l_lines, '                    , ' || rpad(l_name_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_name));
+    add(l_lines, '                    , ' || rpad(l_secret_arg, 22) || ' => ' || arw_render_utils.quote_literal(l_secret));
+    add(l_lines, '                  );');
+    add(l_lines, '                end;');
+    add(l_lines, '                /');
+    add(l_lines, '                ```');
+    add(l_lines, '        }');
+    add(l_lines, '    )');
+    add(l_lines, ')');
+
+    logger.log('END', l_scope, null, l_params);
+
+    return join_lines(l_lines) || gc_lf;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end demo_secret_script;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: build_demo_app_zip
+  -- ===========================================================================
+  /**
+   * Builds a ready-to-import APEXlang app (.zip) for a GET endpoint: a
+   * public page with an Interactive Report on the generated REST Data
+   * Source (with its Remote Server and, when the request has auth, its Web
+   * Credential). Import it in App Builder (Import > Application) or with
+   * SQLcl (apex import -input <file>.zip -workspace <name>). The zip's
+   * deployments/default.json suggests application id 100000 + endpoint id
+   * (App Builder rejects the zip without it); the importer can change it.
+   *
+   * With p_include_secrets_yn = 'Y' the app also carries a supporting
+   * object install script that stores the request's auth values in the Web
+   * Credential; otherwise the developer sets them in Shared Components >
+   * Web Credentials after install.
+   *
+   * @example
+   * set serveroutput on
+   * declare
+   *   l_zip blob;
+   * begin
+   *   l_zip := arw_codegen_api.build_demo_app_zip(
+   *       p_endpoint_id                        => 64
+   *     , p_include_secrets_yn                 => 'N'
+   *   );
+   *   dbms_output.put_line(dbms_lob.getlength(l_zip) || ' bytes');
+   * end;
+   * /
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param p_endpoint_id Endpoint (GET, with a data profile)
+   * @param p_include_secrets_yn Y = install the auth values with the app
+   * @return blob Zip with the APEXlang app tree
+   */
+  function build_demo_app_zip(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_include_secrets_yn                      in varchar2 default 'N'
+  )
+  return blob
+  is
+    l_scope    logger_logs.scope%type := gc_scope_prefix || 'build_demo_app_zip';
+    l_params   logger.tab_param;
+    l_ctx      t_ctx;
+    l_zip      blob;
+    l_rds      clob;
+    l_marker   constant varchar2(20 char) := gc_lf || '// file: ';
+    l_pos      pls_integer;
+    l_next     pls_integer;
+    l_eol      pls_integer;
+    l_path     varchar2(400 char);
+    l_title    varchar2(400 char);
+    l_lines    apex_t_varchar2 := apex_t_varchar2();
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.append_param(l_params, 'p_include_secrets_yn', p_include_secrets_yn);
+    logger.log('START', l_scope, null, l_params);
+
+    l_ctx := load_context(p_endpoint_id, null);
+
+    if l_ctx.http_method != 'GET' then
+      raise_application_error(gc_err_invalid_input, 'The demo app supports GET requests only.');
+    end if;
+
+    if l_ctx.data_profile_id is null then
+      raise_application_error(gc_err_invalid_input, 'Send the request once (with a JSON response) so ARW can build the data profile.');
+    end if;
+
+    l_title := arw_render_utils.apx_text(l_ctx.endpoint_name);
+    dbms_lob.createtemporary(l_zip, true);
+
+    -- ---------------------------------------------------------------------------
+    -- REST Data Source, Remote Server and Web Credential: one file per
+    -- "// file:" marker of the apexlang_rds artifact
+    -- ---------------------------------------------------------------------------
+    l_rds := gc_lf || get_artifact(
+                          p_endpoint_id                => p_endpoint_id
+                        , p_artifact_type_code         => 'apexlang_rds'
+                      );
+    l_pos := dbms_lob.instr(l_rds, l_marker);
+    while l_pos > 0 loop
+      l_eol  := dbms_lob.instr(l_rds, gc_lf, l_pos + length(l_marker));
+      l_path := trim(dbms_lob.substr(l_rds, l_eol - l_pos - length(l_marker), l_pos + length(l_marker)));
+      l_next := dbms_lob.instr(l_rds, l_marker, l_eol);
+
+      add_zip_text(
+          io_zip                                => l_zip
+        , p_path                                => l_path
+        , p_text                                => rtrim(case
+                                                           when l_next > 0 then substr(l_rds, l_eol + 1, l_next - l_eol - 1)
+                                                           else substr(l_rds, l_eol + 1)
+                                                         end, gc_lf) || gc_lf
+      );
+      l_pos := l_next;
+    end loop;
+
+    -- ---------------------------------------------------------------------------
+    -- App shell: no login (noAuth), Universal Theme, one menu entry
+    -- ---------------------------------------------------------------------------
+    add_zip_text(l_zip, '.apex/apexlang.json', '{' || gc_lf || '  "mmdVersion" : "26.1.0+3102"' || gc_lf || '}' || gc_lf);
+
+    -- App Builder's import fails (ORDS HTTP 400) without this file; the id is
+    -- only a suggestion, the importer can still auto-assign another one
+    add_zip_text(
+        io_zip                                  => l_zip
+      , p_path                                  => 'deployments/default.json'
+      , p_text                                  => '{' || gc_lf
+                                                   || '  "app" : {' || gc_lf
+                                                   || '    "id" : ' || to_char(100000 + p_endpoint_id) || gc_lf
+                                                   || '  }' || gc_lf
+                                                   || '}' || gc_lf
+    );
+
+    add(l_lines, 'app ' || upper(arw_render_utils.to_static_id(l_ctx.endpoint_name)) || '-DEMO (');
+    add(l_lines, '    name: ' || l_title || ' - ARW demo');
+    add(l_lines, '    logo {');
+    add(l_lines, '        type: text');
+    add(l_lines, '        text: ' || l_title);
+    add(l_lines, '    }');
+    add(l_lines, '    navigation {');
+    add(l_lines, '        homeUrl: {');
+    add(l_lines, '            page: 1');
+    add(l_lines, '        }');
+    add(l_lines, '    }');
+    add(l_lines, '    navigationMenu {');
+    add(l_lines, '        listTemplate: @/side-navigation-menu');
+    add(l_lines, '        templateOptions: #DEFAULT#');
+    add(l_lines, '        list: @navigation-menu');
+    add(l_lines, '    }');
+    add(l_lines, '    navigationBar {');
+    add(l_lines, '        list: @navigation-bar');
+    add(l_lines, '        listTemplate: @/navigation-bar');
+    add(l_lines, '        templateOptions: #DEFAULT#');
+    add(l_lines, '    }');
+    add(l_lines, '    userInterface {');
+    add(l_lines, '        currentTheme: @universal-theme');
+    add(l_lines, '        globalPage: 0');
+    add(l_lines, '    }');
+    add(l_lines, '    authentication {');
+    add(l_lines, '        scheme: @no-authentication');
+    add(l_lines, '    }');
+    add(l_lines, ')');
+    add_zip_text(l_zip, 'application.apx', join_lines(l_lines) || gc_lf);
+
+    add_zip_text(l_zip, 'shared-components/authentications.apx'
+                      , 'authentication no-authentication (' || gc_lf
+                     || '    name: No Authentication' || gc_lf
+                     || '    type: noAuth' || gc_lf
+                     || ')' || gc_lf);
+
+    l_lines := apex_t_varchar2();
+    add(l_lines, 'list navigation-menu (');
+    add(l_lines, '    name: Navigation Menu');
+    add(l_lines, '');
+    add(l_lines, '    entry home (');
+    add(l_lines, '        label: ' || l_title);
+    add(l_lines, '        icon {');
+    add(l_lines, '            imageIconCssClasses: fa-table');
+    add(l_lines, '        }');
+    add(l_lines, '        layout {');
+    add(l_lines, '            sequence: 10');
+    add(l_lines, '        }');
+    add(l_lines, '        link {');
+    add(l_lines, '            target: {');
+    add(l_lines, '                page: 1');
+    add(l_lines, '            }');
+    add(l_lines, '        }');
+    add(l_lines, '    )');
+    add(l_lines, ')');
+    add(l_lines, '');
+    add(l_lines, 'list navigation-bar (');
+    add(l_lines, '    name: Navigation Bar');
+    add(l_lines, ')');
+    add_zip_text(l_zip, 'shared-components/lists.apx', join_lines(l_lines) || gc_lf);
+
+    l_lines := apex_t_varchar2();
+    add(l_lines, 'theme universal-theme (');
+    add(l_lines, '    name: Universal Theme');
+    add(l_lines, '    themeNumber: 42');
+    add(l_lines, '    baseTheme: ut-26.1');
+    add(l_lines, '    style {');
+    add(l_lines, '        currentThemeStyle: @/iris');
+    add(l_lines, '    }');
+    add(l_lines, '    javaScript {');
+    add(l_lines, '        fileUrls: [');
+    add(l_lines, '            #APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.stickyWidget#MIN#.js?v=#APEX_VERSION#');
+    add(l_lines, '            #THEME_FILES#js/theme42#MIN#.js?v=#APEX_VERSION#');
+    add(l_lines, '        ]');
+    add(l_lines, '    }');
+    add(l_lines, '    css {');
+    add(l_lines, '        fileUrls: #THEME_FILES#css/Core#MIN#.css?v=#APEX_VERSION#');
+    add(l_lines, '    }');
+    add(l_lines, '    componentDefaults {');
+    add(l_lines, '        page: @/standard');
+    add(l_lines, '        navigationBarList: @/navigation-bar');
+    add(l_lines, '        navigationMenuListPosition: side');
+    add(l_lines, '        navigationMenuListTop: @/top-navigation-menu');
+    add(l_lines, '        navigationMenuListSide: @/side-navigation-menu');
+    add(l_lines, '        loginPage: @/login');
+    add(l_lines, '        errorPage: @/login');
+    add(l_lines, '        printerFriendlyPage: @/standard');
+    add(l_lines, '        breadcrumb: @/breadcrumb');
+    add(l_lines, '        button: @/text');
+    add(l_lines, '        defaultLabel: @/optional-floating');
+    add(l_lines, '        optionalLabel: @/optional-floating');
+    add(l_lines, '        requiredLabel: @/required-floating');
+    add(l_lines, '        list: @/links-list');
+    add(l_lines, '        region: @/standard');
+    add(l_lines, '        classicReport: @/standard');
+    add(l_lines, '    }');
+    add(l_lines, '    regionDefaults {');
+    add(l_lines, '        breadcrumbs: @/title-bar');
+    add(l_lines, '        charts: @/standard');
+    add(l_lines, '        forms: @/standard');
+    add(l_lines, '        lists: @/standard');
+    add(l_lines, '        reports: @/standard');
+    add(l_lines, '        wizards: @/standard');
+    add(l_lines, '        interactiveReports: @/interactive-report');
+    add(l_lines, '    }');
+    add(l_lines, '    dialogDefaults {');
+    add(l_lines, '        dialogContentRegion: @/blank-with-attributes');
+    add(l_lines, '        dialogButtonRegion: @/buttons-container');
+    add(l_lines, '        dialogPage: @/modal-dialog');
+    add(l_lines, '    }');
+    add(l_lines, '    icons {');
+    add(l_lines, '        library: fontApex');
+    add(l_lines, '    }');
+    add(l_lines, '    advanced {');
+    add(l_lines, '        filePrefix: #APEX_FILES#themes/theme_42/26.1/');
+    add(l_lines, '        identifier: UNIVERSAL_THEME');
+    add(l_lines, '    }');
+    add(l_lines, ')');
+    add_zip_text(l_zip, 'shared-components/themes/universal-theme/theme.apx', join_lines(l_lines) || gc_lf);
+
+    add_zip_text(l_zip, 'pages/p00000-global-page.apx', 'page 0 (' || gc_lf || '    name: Global Page' || gc_lf || ')' || gc_lf);
+    add_zip_text(l_zip, 'pages/p00001-home.apx', demo_page_text(l_ctx));
+
+    -- Secrets only for simple auth (Auth tab): a linked APEX Web Credential
+    -- already holds its own secret in the workspace
+    if p_include_secrets_yn = 'Y' and has_credential(l_ctx) and l_ctx.credential_id is null then
+      add_zip_text(l_zip, 'supporting-objects/supporting-objects.apx', demo_secret_script(l_ctx));
+    end if;
+
+    apex_zip.finish(p_zipped_blob => l_zip);
+
+    logger.log('END', l_scope, null, l_params);
+
+    return l_zip;
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end build_demo_app_zip;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
+  -- FUNCTION: demo_app_file_name
+  -- ===========================================================================
+  /**
+   * Download file name for the demo app of an endpoint
+   * (<endpoint-name>-demo.zip, kebab-case).
+   *
+   * @example
+   * set serveroutput on
+   * begin
+   *   dbms_output.put_line(arw_codegen_api.demo_app_file_name(p_endpoint_id => 64));
+   * end;
+   * /
+   *
+   * @issue   PHASE2-simplified (demo app download)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 3, 2026
+   *
+   * @param p_endpoint_id Endpoint
+   * @return varchar2 File name
+   */
+  function demo_app_file_name(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+  )
+  return varchar2
+  is
+    l_scope  logger_logs.scope%type := gc_scope_prefix || 'demo_app_file_name';
+    l_params logger.tab_param;
+  begin
+    return regexp_replace(bundle_file_name(p_endpoint_id => p_endpoint_id), '\.apx$', '-demo.zip');
+  exception
+    when others then
+      logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end demo_app_file_name;
 
 
 end arw_codegen_api;

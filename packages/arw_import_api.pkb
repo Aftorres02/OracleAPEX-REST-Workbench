@@ -505,6 +505,112 @@ as
 
 
   -- ===========================================================================
+  -- PROCEDURE: apply_postman_auth (private)
+  -- ===========================================================================
+  /**
+   * Copies a Postman auth object into the endpoint's simple auth (Auth tab):
+   * basic -> user + password, bearer -> token, apikey -> key name, value and
+   * header/query. Postman values usually hold {{variables}}, which resolve
+   * from the imported environment at Send time. Any other type (oauth2,
+   * awsv4, jwt...) is imported without auth and noted as skipped.
+   * resolve_credential (APEX Web Credentials) is kept for a future version.
+   *
+   * @example
+   * -- Private: exercised through import_postman. A collection-level bearer
+   * -- auth sets every endpoint that inherits it to bearer {{token}}.
+   * select e.name                                            as endpoint_name
+   *      , e.auth_type_code                                  as auth_type_code
+   *   from arw_endpoints e
+   *  where e.auth_type_code != 'none';
+   *
+   * @issue   PHASE2-simplified (simple auth without APEX Web Credentials)
+   *
+   * @author  Angel Flores (Developer)
+   * @created November 03, 2026
+   *
+   * @param  p_endpoint_id  Endpoint just created by the import
+   * @param  p_auth         Postman auth object in effect for the request; null for none
+   */
+  procedure apply_postman_auth(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_auth                                    in json_object_t
+  )
+  is
+    l_scope        logger_logs.scope%type := gc_scope_prefix || 'apply_postman_auth';
+    l_params       logger.tab_param;
+    l_postman_type varchar2(60 char);
+  begin
+    logger.append_param(l_params, 'p_endpoint_id', p_endpoint_id);
+    logger.log('START', l_scope, null, l_params);
+
+    if p_auth is null then
+      logger.log('END - no auth', l_scope, null, l_params);
+      return;
+    end if;
+
+    l_postman_type := lower(p_auth.get_string('type'));
+    logger.append_param(l_params, 'l_postman_type', l_postman_type);
+
+    -- An empty value (or a Postman v2.0 shape auth_attribute can't read)
+    -- imports the request without auth rather than failing the import.
+    if (l_postman_type = 'basic'  and auth_attribute(p_auth => p_auth, p_key => 'username') is null)
+       or (l_postman_type = 'bearer' and auth_attribute(p_auth => p_auth, p_key => 'token') is null)
+       or (l_postman_type = 'apikey' and (   auth_attribute(p_auth => p_auth, p_key => 'key') is null
+                                          or auth_attribute(p_auth => p_auth, p_key => 'value') is null))
+    then
+      note_skipped(p_reason => l_postman_type || ' auth without a value -- endpoint imported without auth');
+      logger.log('END - auth value missing', l_scope, null, l_params);
+      return;
+    end if;
+
+    case l_postman_type
+      when 'basic' then
+        arw_endpoint_api.set_auth(
+            p_endpoint_id                       => p_endpoint_id
+          , p_auth_type_code                    => 'basic'
+          , p_auth_username                     => auth_attribute(p_auth => p_auth, p_key => 'username')
+          , p_auth_password                     => auth_attribute(p_auth => p_auth, p_key => 'password')
+        );
+      when 'bearer' then
+        arw_endpoint_api.set_auth(
+            p_endpoint_id                       => p_endpoint_id
+          , p_auth_type_code                    => 'bearer'
+          , p_auth_token                        => auth_attribute(p_auth => p_auth, p_key => 'token')
+        );
+      when 'apikey' then
+        arw_endpoint_api.set_auth(
+            p_endpoint_id                       => p_endpoint_id
+          , p_auth_type_code                    => 'api_key'
+          , p_auth_key_name                     => auth_attribute(p_auth => p_auth, p_key => 'key')
+          , p_auth_key_value                    => auth_attribute(p_auth => p_auth, p_key => 'value')
+          , p_auth_key_location_code            => case
+                                                     when lower(auth_attribute(p_auth => p_auth, p_key => 'in')) = 'query' then 'query'
+                                                     else 'header'
+                                                   end
+        );
+      when 'noauth' then
+        null;
+      else
+        note_skipped(p_reason => 'auth type "' || nvl(l_postman_type, '(none given)') || '" not supported -- endpoint imported without auth');
+    end case;
+
+    g_credential_n := g_credential_n + case when l_postman_type in ('basic', 'bearer', 'apikey') then 1 else 0 end;
+
+    logger.log('END', l_scope, null, l_params);
+  exception
+    when others then
+      logger.log_error('Unhandled Exception', l_scope, null, l_params);
+      raise;
+  end apply_postman_auth;
+
+
+
+
+
+
+
+
+  -- ===========================================================================
   -- FUNCTION: resolve_base_url (private)
   -- ===========================================================================
   /**
@@ -869,7 +975,6 @@ as
     l_path          varchar2(4000 char);
     l_query         varchar2(4000 char);
     l_auth          json_object_t;
-    l_credential_id arw_credentials.credential_id%type;
     l_endpoint_id   arw_endpoints.endpoint_id%type;
     l_content_type  varchar2(200 char);
     l_query_n       pls_integer := 0;
@@ -968,14 +1073,16 @@ as
                 else p_inherited_auth
               end;
 
-    l_credential_id := resolve_credential(p_auth => l_auth);
-
     l_endpoint_id := arw_endpoint_api.create_endpoint(
         p_collection_id                         => g_collection_id
       , p_name                                  => l_name
       , p_http_method                           => l_method
       , p_url_path                              => substr(l_path, 1, 1000)
-      , p_credential_id                         => l_credential_id
+    );
+
+    apply_postman_auth(
+        p_endpoint_id                           => l_endpoint_id
+      , p_auth                                  => l_auth
     );
 
     g_endpoint_n := g_endpoint_n + 1;
@@ -1494,7 +1601,7 @@ as
                   || g_header_n || ' header(s), '
                   || g_param_n || ' param(s), '
                   || g_body_n || ' request bod' || case when g_body_n = 1 then 'y' else 'ies' end || ', '
-                  || g_credential_n || ' new credential(s), '
+                  || g_credential_n || ' with auth, '
                   || case
                        when l_environment_id is not null then 'environment "' || gc_environment_name || '" (' || coalesce(g_base_url, '{{baseUrl}}') || ') with '
                                                               || g_variable_n || ' variable(s)'

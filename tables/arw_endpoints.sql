@@ -9,6 +9,7 @@
 -- @author  Angel Flores (Developer)
 -- @created September 09, 2026
 -- @ticket  N/A (Phase 0 - initial ARW data model)
+-- @ticket  PHASE2-simplified (simple auth columns; see release/code/simple_auth_upgrade.sql)
 -- =============================================================================
 -- Note: the audit compound trigger lives in a separate file
 -- (triggers/arw_endpoints_compound_trg.sql) so release/all_triggers.sql
@@ -28,6 +29,13 @@ create table arw_endpoints (
   , timeout_secs                  number default 30 not null
   , runtime_target_code           varchar2(20 char) default 'apex' not null
   , engine_code                   varchar2(30 char) default 'apex_web_service' not null
+  , auth_type_code                varchar2(20 char) default 'none' not null
+  , auth_username                 varchar2(400 char)
+  , auth_password                 varchar2(4000 char)
+  , auth_token                    varchar2(4000 char)
+  , auth_key_name                 varchar2(200 char)
+  , auth_key_value                varchar2(4000 char)
+  , auth_key_location_code        varchar2(10 char) default 'header' not null
   , active_yn                     varchar2(1 char) default 'Y' not null
   , created_by                    varchar2(60 char) default
                                    coalesce(
@@ -47,6 +55,8 @@ create table arw_endpoints (
   , constraint ck_arw_endpoints_engine check (engine_code in (
       'apex_web_service', 'apex_web_service_b', 'utl_http', 'dbms_cloud_send_request'
     ))
+  , constraint ck_arw_endpoints_auth_type check (auth_type_code in ('none', 'basic', 'bearer', 'api_key'))
+  , constraint ck_arw_endpoints_auth_key_location check (auth_key_location_code in ('header', 'query'))
   , constraint fk_endpoints_collections foreign key (collection_id) references arw_collections (collection_id)
   , constraint fk_endpoints_credentials foreign key (credential_id) references arw_credentials (credential_id)
 );
@@ -74,6 +84,13 @@ begin
   execute immediate 'comment on column arw_endpoints.timeout_secs is ''Call timeout, in seconds.''';
   execute immediate 'comment on column arw_endpoints.runtime_target_code is ''Target runtime for the generated code: apex (live session), job (scheduler, no APEX session) or autonomous.''';
   execute immediate 'comment on column arw_endpoints.engine_code is ''Invocation engine: apex_web_service, apex_web_service_b (blob), utl_http or dbms_cloud_send_request.''';
+  execute immediate 'comment on column arw_endpoints.auth_type_code is ''Simple auth applied by ARW itself: none, basic, bearer or api_key. Independent of credential_id (APEX Web Credentials, hidden since the Nov 2026 simplification).''';
+  execute immediate 'comment on column arw_endpoints.auth_username is ''Basic auth user name; supports {{var}} tokens.''';
+  execute immediate 'comment on column arw_endpoints.auth_password is ''Basic auth password, stored as typed (demo/beta); supports {{var}} tokens.''';
+  execute immediate 'comment on column arw_endpoints.auth_token is ''Bearer token, stored as typed (demo/beta); supports {{var}} tokens.''';
+  execute immediate 'comment on column arw_endpoints.auth_key_name is ''API key header or query parameter name (e.g. x-api-key).''';
+  execute immediate 'comment on column arw_endpoints.auth_key_value is ''API key value, stored as typed (demo/beta); supports {{var}} tokens.''';
+  execute immediate 'comment on column arw_endpoints.auth_key_location_code is ''Where the API key goes: header or query.''';
   execute immediate 'comment on column arw_endpoints.active_yn is ''Soft-delete flag: Y = active, N = inactive.''';
 end;
 /

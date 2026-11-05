@@ -7,11 +7,12 @@
 --           https://jsonplaceholder.typicode.com): five more endpoints on
 --           top of the Phase 0 "Get sample todo" (query params, a JSON
 --           body and a Content-Type header).
---         * Collection "Sandbox" (env "dev" -> https://httpbin.org, no
---           network ACE) with a GET /bearer endpoint linked to the
---           "Sandbox bearer" credential, whose SANDBOX_BEARER static ID is
---           not in the APEX credential store -- the preflight shows the ACL
---           check failing and the credential missing, as in the mockup.
+--         * Collection "Sandbox" (env "dev" -> https://httpbin.org) with a
+--           GET /bearer endpoint; its simple auth, the "prod" environment
+--           and the other auth examples come from arw_seed_phase2_demo.sql.
+--           The "Sandbox bearer" credential is still seeded for the hidden
+--           Web Credentials feature (docs/future/apex-credentials.md) but no
+--           endpoint links it.
 --         * Target profiles "Default -- APEX + logger" (the default: lowest
 --           id), "Scheduler job" and "Plain", with db_version/apex_version
 --           taken from this instance.
@@ -248,8 +249,7 @@ begin
     "collection_name": "Sandbox",
     "name": "Bearer auth check",
     "http_method": "GET",
-    "url_path": "/bearer",
-    "credential_name": "Sandbox bearer"
+    "url_path": "/bearer"
   }
 ]
 !';

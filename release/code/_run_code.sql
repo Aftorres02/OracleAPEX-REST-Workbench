@@ -14,3 +14,6 @@
 
 -- Issue #25: in-app Guide examples table (idempotent).
 @code/guide_upgrade.sql
+
+-- PHASE2-simplified: simple per-request auth columns (idempotent).
+@code/simple_auth_upgrade.sql

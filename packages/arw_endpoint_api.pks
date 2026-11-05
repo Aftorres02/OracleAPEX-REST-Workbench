@@ -96,6 +96,18 @@ as
   );
 
 
+  procedure set_auth(
+      p_endpoint_id                             in arw_endpoints.endpoint_id%type
+    , p_auth_type_code                          in arw_endpoints.auth_type_code%type
+    , p_auth_username                           in arw_endpoints.auth_username%type default null
+    , p_auth_password                           in arw_endpoints.auth_password%type default null
+    , p_auth_token                              in arw_endpoints.auth_token%type default null
+    , p_auth_key_name                           in arw_endpoints.auth_key_name%type default null
+    , p_auth_key_value                          in arw_endpoints.auth_key_value%type default null
+    , p_auth_key_location_code                  in arw_endpoints.auth_key_location_code%type default 'header'
+  );
+
+
   procedure remove_body(
       p_endpoint_id                             in arw_request_bodies.endpoint_id%type
   );

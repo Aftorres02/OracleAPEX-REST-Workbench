@@ -168,6 +168,19 @@
   gap: .5rem;
 }
 
+/* Request Bar (page 210): the Buttons Container template adds
+   t-Form--floatLeft, which sizes every grid column to its content, so
+   column span and "stretch" have no effect. The URL column takes the
+   free width instead -- the only .t-* rule in this file, kept scoped. */
+.arw-request-region .col.arw-col-grow {
+  flex-grow: 1;
+}
+
+.arw-request-region .arw-col-grow .t-Form-fieldContainer {
+  float: none;
+  width: 100%;
+}
+
 /* ================================================================ */
 /* Banners                                                          */
 /* ================================================================ */
