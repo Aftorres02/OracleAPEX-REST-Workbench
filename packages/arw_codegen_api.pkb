@@ -3222,13 +3222,15 @@ as
       add(l_lines, '            layout {');
       add(l_lines, '                sequence: ' || l_seq);
       add(l_lines, '            }');
+      -- IR columns only store STRING/NUMBER/DATE/CLOB (WWV_FLOW_VALID_WS_COL_TYPE):
+      -- a timestamp column is a DATE column, as the Builder itself stores it
       add(l_lines, '            source {');
       add(l_lines, '                dataType: ' || case
                                                      when p_ctx.profile_columns(i).is_json_yn = 'Y' then 'CLOB'
                                                      else case p_ctx.profile_columns(i).data_type_code
                                                             when 'number'                   then 'NUMBER'
                                                             when 'date'                     then 'DATE'
-                                                            when 'timestamp_with_time_zone' then 'TIMESTAMP_TZ'
+                                                            when 'timestamp_with_time_zone' then 'DATE'
                                                             when 'clob'                     then 'CLOB'
                                                             else 'STRING'
                                                           end
@@ -3480,7 +3482,8 @@ as
     end if;
 
     if l_ctx.data_profile_id is null then
-      raise_application_error(gc_err_invalid_input, 'Send the request once (with a JSON response) so ARW can build the data profile.');
+      -- Binary (image/file) and non-JSON responses never produce a profile
+      raise_application_error(gc_err_invalid_input, 'The demo app needs a data profile, built from a successful JSON response. The last response of this request has none (not JSON, or a file such as an image).');
     end if;
 
     l_title := arw_render_utils.apx_text(l_ctx.endpoint_name);
