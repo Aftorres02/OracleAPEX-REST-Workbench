@@ -15,7 +15,7 @@ page 410 (
         formAutoComplete: false
     }
     help {
-        helpText: The request as it was sent (sensitive headers are redacted when the call is logged) and the response that came back. JSON bodies are pretty-printed; bodies longer than 20,000 characters are cut.
+        helpText: The request as it was sent (sensitive headers are redacted when the call is logged) and the response that came back. JSON bodies are pretty-printed; bodies longer than 20,000 characters are cut. Open in editor opens the request in the endpoint editor, with the environment of this execution made active, to test it again; the editor shows the request as currently saved.
     }
 
     region requestCR (
@@ -414,6 +414,108 @@ page 410 (
         }
         security {
             sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P410_ENDPOINT_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        comments {
+            comments: Endpoint of this execution, set by the compute-endpoint-id computation; null when the endpoint was deleted. Target of the OPEN_EDITOR button.
+        }
+    )
+
+    pageItem P410_ENV_NAME (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @paramsSR
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        comments {
+            comments: Environment this execution ran against, set by the compute-env-name computation; falls back to the active environment when the call ran with none (full-URL endpoint). OPEN_EDITOR makes it the active environment.
+        }
+    )
+
+    computation compute-endpoint-id (
+        itemName: P410_ENDPOINT_ID
+        execution {
+            sequence: 10
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select l.endpoint_id                                       as endpoint_id
+                  from arw_execution_log_vw l
+                 where l.execution_id = :P410_EXECUTION_ID
+                ```
+        }
+    )
+
+    computation compute-env-name (
+        itemName: P410_ENV_NAME
+        execution {
+            sequence: 20
+            point: beforeRegions
+        }
+        computation {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select coalesce(v.name, :ARW_ENV_NAME)                     as environment_name
+                  from arw_executions                      e
+                  left join arw_environments               v on v.environment_id = e.environment_id
+                 where e.execution_id = :P410_EXECUTION_ID
+                ```
+        }
+    )
+
+    button OPEN_EDITOR (
+        buttonName: OPEN_EDITOR
+        advanced {
+            htmlDomId: OPEN_EDITOR
+        }
+        label: Open in editor
+        layout {
+            sequence: 20
+            region: @buttonsSR
+            slot: NEXT
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 210
+                items: {
+                    P210_ENDPOINT_ID: &P410_ENDPOINT_ID.
+                    ARW_ENV_NAME: &P410_ENV_NAME.
+                }
+                clearCache: 210
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P410_ENDPOINT_ID
+        }
+        comments {
+            comments: Re-test helper. Opens this request in the editor with the environment of this execution made active. The editor shows the request as saved now -- every Send saves it, so it matches the latest execution of the endpoint, not necessarily this one.
         }
     )
 

@@ -144,7 +144,7 @@ page 210 (
         formAutoComplete: false
     }
     help {
-        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. For a GET request, Download demo app (.zip) gives a complete app to import in App Builder (Import > Application). The data profile (the response columns) is derived automatically from the last successful JSON response.
+        helpText: Type or paste a URL and press Send -- Send saves the request (URL, Params, Auth, Headers, Body, Settings) and calls it from the database in one step; Save only saves. New requests without a collection go to Drafts; move them from the Settings tab. Below the request, the Response tab shows the result and the Code tab generates PL/SQL or a REST Data Source for it. For a GET request with a JSON response, Download demo app (.zip) gives a complete app to import in App Builder (Import > Application). The data profile (the response columns) is derived automatically from the last successful JSON response.
     }
 
     // =========================================================================
@@ -2229,6 +2229,7 @@ page 210 (
             plsqlExpression:
                 ```plsql
                 :P210_HTTP_METHOD = 'GET' and :P210_AUTH_TYPE_CODE != 'none'
+                and arw_discover_api.current_profile_id(p_endpoint_id => :P210_ENDPOINT_ID) is not null
                 ```
         }
         help {
@@ -2236,6 +2237,48 @@ page 210 (
         }
         comments {
             comments: Read by the download-demo-app process from session state; the remember-demo-secrets dynamic action keeps it in sync.
+        }
+    )
+
+    pageItem P210_DEMO_APP_NOTE (
+        type: displayOnly
+        label {
+            label: Demo app
+            alignment: left
+        }
+        settings {
+            sendOnPageSubmit: false
+            format: plainText
+        }
+        layout {
+            sequence: 30
+            region: @codeFooterSR
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                'Needs a data profile, built from a successful JSON response. The last response has none (not JSON, or a file such as an image).'
+                ```
+        }
+        serverSideCondition {
+            type: expression
+            language: plsql
+            plsqlExpression:
+                ```plsql
+                :P210_HTTP_METHOD = 'GET'
+                and arw_discover_api.current_profile_id(p_endpoint_id => :P210_ENDPOINT_ID) is null
+                ```
+        }
+        comments {
+            comments: Shown instead of the Download demo app button when the endpoint has no data profile (binary or non-JSON last response).
         }
     )
 
@@ -2427,6 +2470,7 @@ page 210 (
             plsqlExpression:
                 ```plsql
                 :P210_HTTP_METHOD = 'GET'
+                and arw_discover_api.current_profile_id(p_endpoint_id => :P210_ENDPOINT_ID) is not null
                 ```
         }
     )

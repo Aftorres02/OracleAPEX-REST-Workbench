@@ -322,7 +322,7 @@ Module × 100, detail × 10 convention. The app is hand-written APEXlang in
 | 200 | Endpoints (IR) | from collections |
 | 210 | **Request editor** (see below) | top bar: *New request* |
 | 300 / 310 | Environments / variables, "Set active" | yes |
-| 400 / 410 | History / execution detail (request and response) | yes |
+| 400 / 410 | History / execution detail (request and response; Open in editor re-opens the request on page 210 with that run's environment active) | yes |
 | 500 / 510 | Target profiles | hidden |
 | 600 / 610 | Web Credentials | hidden |
 | 700 | Postman import | yes |
@@ -491,8 +491,10 @@ through the `apex_web_service` route with a signer package, not through
 
 ### 10.5 Demo App (.zip)
 
-`arw_codegen_api.build_demo_app_zip`, GET requests only. It is a complete
-APEXlang app:
+`arw_codegen_api.build_demo_app_zip`, GET requests only, and only once the
+endpoint has a data profile: a binary (image, file) or non-JSON last
+response has none, so page 210 shows a note instead of the button. It is a
+complete APEXlang app:
 
 - one public page (no login) with an Interactive Report on the REST Data
   Source;
